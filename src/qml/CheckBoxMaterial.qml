@@ -16,7 +16,7 @@ Item {
         id: checkBox
         checked: checkBoxContainer.checked
         anchors.verticalCenter: parent.verticalCenter
-//        Material.theme: checkBoxContainer.theme === "Dark" ? Material.Dark : Material.Light
+        Material.theme: checkBoxContainer.theme === "Dark" ? Material.Dark : Material.Light
         Material.accent: "#2383e2";
         enabled: !checkBoxContainer.isReadOnlyMode
 

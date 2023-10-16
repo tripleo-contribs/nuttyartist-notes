@@ -20,7 +20,7 @@
 NoteEditorLogic::NoteEditorLogic(CustomDocument *textEdit, QLabel *editorDateLabel,
                                  QLineEdit *searchEdit, QWidget *kanbanWidget,
                                  TagListView *tagListView, TagPool *tagPool, DBManager *dbManager,
-                                 QObject *parent)
+                                 BlockModel *blockModel, QObject *parent)
 #else
 NoteEditorLogic::NoteEditorLogic(CustomDocument *textEdit, QLabel *editorDateLabel,
                                  QLineEdit *searchEdit, TagListView *tagListView, TagPool *tagPool,
@@ -39,8 +39,10 @@ NoteEditorLogic::NoteEditorLogic(CustomDocument *textEdit, QLabel *editorDateLab
       m_isContentModified{ false },
       m_spacerColor{ 191, 191, 191 },
       m_currentAdaptableEditorPadding{ 0 },
-      m_currentMinimumEditorPadding{ 0 }
+      m_currentMinimumEditorPadding{ 0 },
+      m_blockModel{ blockModel }
 {
+    connect(m_blockModel, &BlockModel::textChangeFinished, this,&NoteEditorLogic::onBlockModelTextChanged);
     connect(m_textEdit, &QTextEdit::textChanged, this, &NoteEditorLogic::onTextEditTextChanged);
     connect(this, &NoteEditorLogic::requestCreateUpdateNote, m_dbManager,
             &DBManager::onCreateUpdateRequestedNoteContent, Qt::QueuedConnection);
@@ -67,9 +69,9 @@ NoteEditorLogic::NoteEditorLogic(CustomDocument *textEdit, QLabel *editorDateLab
         if (m_kanbanWidget != nullptr) {
             emit setVisibilityOfFrameRightNonEditor(false);
             bool shouldRecheck = checkForTasksInEditor();
-            if (shouldRecheck) {
-                checkForTasksInEditor();
-            }
+//            if (shouldRecheck) {
+//                checkForTasksInEditor();
+//            }
             m_kanbanWidget->show();
             m_textEdit->hide();
             m_textEdit->clearFocus();
@@ -123,11 +125,14 @@ void NoteEditorLogic::showNotesInEditor(const QVector<NodeData> &notes)
         QDateTime dateTime = notes[0].lastModificationdateTime();
         int scrollbarPos = notes[0].scrollBarPosition();
 
-        // set text and date
+//         set text and date
         bool isTextChanged = content != m_textEdit->toPlainText();
         if (isTextChanged) {
             m_textEdit->setText(content);
+            m_blockModel->loadText(content);
         }
+//        m_blockModel->loadText(content);
+
         QString noteDate = dateTime.toString(Qt::ISODate);
         QString noteDateEditor = getNoteDateEditor(noteDate);
         m_editorDateLabel->setText(noteDateEditor);
@@ -141,10 +146,10 @@ void NoteEditorLogic::showNotesInEditor(const QVector<NodeData> &notes)
 #if QT_VERSION >= QT_VERSION_CHECK(6, 2, 0)
         if (m_kanbanWidget != nullptr && m_kanbanWidget->isVisible()) {
             emit clearKanbanModel();
-            bool shouldRecheck = checkForTasksInEditor();
-            if (shouldRecheck) {
-                checkForTasksInEditor();
-            }
+//            bool shouldRecheck = checkForTasksInEditor();
+//            if (shouldRecheck) {
+//                checkForTasksInEditor();
+//            }
             m_textEdit->setVisible(false);
             return;
         } else {
@@ -198,6 +203,38 @@ void NoteEditorLogic::showNotesInEditor(const QVector<NodeData> &notes)
         m_textEdit->setTextInteractionFlags(Qt::TextSelectableByMouse);
         m_textEdit->setFocusPolicy(Qt::NoFocus);
         highlightSearch();
+    }
+}
+
+void NoteEditorLogic::onBlockModelTextChanged()
+{
+    if (currentEditingNoteId() != SpecialNodeID::InvalidNodeId) {
+        QString content = m_currentNotes[0].content();
+        QString sourceDocumentPlainText = m_blockModel->sourceDocument()->toPlainText();
+        if (sourceDocumentPlainText != content) {
+            // move note to the top of the list
+            emit moveNoteToListViewTop(m_currentNotes[0]);
+
+                   // Get the new data
+            QString firstline = getFirstLine(sourceDocumentPlainText);
+            QDateTime dateTime = QDateTime::currentDateTime();
+            QString noteDate = dateTime.toString(Qt::ISODate);
+            m_editorDateLabel->setText(NoteEditorLogic::getNoteDateEditor(noteDate));
+            // update note data
+            m_currentNotes[0].setContent(sourceDocumentPlainText);
+            m_currentNotes[0].setFullTitle(firstline);
+            m_currentNotes[0].setLastModificationDateTime(dateTime);
+            m_currentNotes[0].setIsTempNote(false);
+            // TODO
+//            m_currentNotes[0].setScrollBarPosition(m_textEdit->verticalScrollBar()->value());
+            // update note data in list view
+            emit updateNoteDataInList(m_currentNotes[0]);
+            m_isContentModified = true;
+            m_autoSaveTimer.start();
+            emit setVisibilityOfFrameRightWidgets(false);
+        }
+    } else {
+        qDebug() << "NoteEditorLogic::onTextEditTextChanged() : m_currentNote is not valid";
     }
 }
 
@@ -588,7 +625,7 @@ bool NoteEditorLogic::checkForTasksInEditor()
         if (lineTrimmed.startsWith("#")) {
             if (!tasks.isEmpty() && currentTitle.isEmpty()) {
                 // If we have only tasks without a header we insert one and call this function again
-                addUntitledColumnToTextEditor(tasks.first()["taskStartLine"].toInt());
+//                addUntitledColumnToTextEditor(tasks.first()["taskStartLine"].toInt());
                 return true;
             }
             appendNewColumn(data, currentColumn, currentTitle, tasks);
@@ -601,7 +638,7 @@ bool NoteEditorLogic::checkForTasksInEditor()
         else if (lineTrimmed.endsWith("::") && getTaskDataInLine(line)["taskMatchIndex"] == -1) {
             if (!tasks.isEmpty() && currentTitle.isEmpty()) {
                 // If we have only tasks without a header we insert one and call this function again
-                addUntitledColumnToTextEditor(tasks.first()["taskStartLine"].toInt());
+//                addUntitledColumnToTextEditor(tasks.first()["taskStartLine"].toInt());
                 return true;
             }
             appendNewColumn(data, currentColumn, currentTitle, tasks);
@@ -646,7 +683,7 @@ bool NoteEditorLogic::checkForTasksInEditor()
 
     if (!tasks.isEmpty() && currentTitle.isEmpty()) {
         // If we have only tasks without a header we insert one and call this function again
-        addUntitledColumnToTextEditor(tasks.first()["taskStartLine"].toInt());
+//        addUntitledColumnToTextEditor(tasks.first()["taskStartLine"].toInt());
         return true;
     }
 

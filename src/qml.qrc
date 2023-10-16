@@ -18,8 +18,5 @@
         <file>qml/TodoTaskDelegate.qml</file>
         <file>qml/ViewChooserButton.qml</file>
         <file>qml/EditorSettingsQt512.qml</file>
-        <file>qml/SubscriptionWindow.qml</file>
-        <file>qml/CustomTextField.qml</file>
-        <file>qml/Utilities.js</file>
     </qresource>
 </RCC>

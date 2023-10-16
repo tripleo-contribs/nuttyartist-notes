@@ -1,6 +1,6 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.25)
 
-set(APP_VERSION 2.2.1)
+set(APP_VERSION 2.2.0)
 set(APP_ID "io.github.nuttyartist.notes")
 set(APP_AUTHOR "Ruby Mamistvalove")
 set(APP_AUTHOR_EMAIL "ruby.mamistvalove@gmail.com")
@@ -25,7 +25,7 @@ project(
   Notes
   VERSION ${APP_VERSION}
   DESCRIPTION "Note-taking app. Write down your thoughts"
-  LANGUAGES CXX)
+  LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -132,6 +132,10 @@ set(SOURCES
     ${PROJECT_SOURCE_DIR}/src/aboutwindow.h
     ${PROJECT_SOURCE_DIR}/src/allnotebuttontreedelegateeditor.cpp
     ${PROJECT_SOURCE_DIR}/src/allnotebuttontreedelegateeditor.h
+    ${PROJECT_SOURCE_DIR}/src/blockinfo.h
+    ${PROJECT_SOURCE_DIR}/src/blockinfo.cpp
+    ${PROJECT_SOURCE_DIR}/src/blockmodel.cpp
+    ${PROJECT_SOURCE_DIR}/src/blockmodel.h
     ${PROJECT_SOURCE_DIR}/src/customapplicationstyle.cpp
     ${PROJECT_SOURCE_DIR}/src/customapplicationstyle.h
     ${PROJECT_SOURCE_DIR}/src/customdocument.cpp
@@ -148,8 +152,6 @@ set(SOURCES
     ${PROJECT_SOURCE_DIR}/src/elidedlabel.h
     ${PROJECT_SOURCE_DIR}/src/foldertreedelegateeditor.cpp
     ${PROJECT_SOURCE_DIR}/src/foldertreedelegateeditor.h
-    ${PROJECT_SOURCE_DIR}/src/fontloader.cpp
-    ${PROJECT_SOURCE_DIR}/src/fontloader.h
     ${PROJECT_SOURCE_DIR}/src/labeledittype.cpp
     ${PROJECT_SOURCE_DIR}/src/labeledittype.h
     ${PROJECT_SOURCE_DIR}/src/listviewlogic.cpp
@@ -231,7 +233,13 @@ set(SOURCES_3RD_PARTY
     ${PROJECT_SOURCE_DIR}/3rdParty/qxt/qxtglobal.h
     ${PROJECT_SOURCE_DIR}/3rdParty/qxt/qxtglobalshortcut.cpp
     ${PROJECT_SOURCE_DIR}/3rdParty/qxt/qxtglobalshortcut.h
-    ${PROJECT_SOURCE_DIR}/3rdParty/qxt/qxtglobalshortcut_p.h)
+    ${PROJECT_SOURCE_DIR}/3rdParty/qxt/qxtglobalshortcut_p.h
+    ${PROJECT_SOURCE_DIR}/3rdParty/md4c/src/md4c.c
+    ${PROJECT_SOURCE_DIR}/3rdParty/md4c/src/md4c.h
+    ${PROJECT_SOURCE_DIR}/3rdParty/md4c/src/md4c-html.c
+    ${PROJECT_SOURCE_DIR}/3rdParty/md4c/src/md4c-html.h
+    ${PROJECT_SOURCE_DIR}/3rdParty/md4c/src/entity.c
+    ${PROJECT_SOURCE_DIR}/3rdParty/md4c/src/entity.h)
 
 if(UPDATE_CHECKER)
   list(APPEND SOURCES ${PROJECT_SOURCE_DIR}/src/updaterwindow.cpp
@@ -269,7 +277,7 @@ elseif(WIN32)
 endif()
 
 add_executable(${PROJECT_NAME} WIN32 MACOSX_BUNDLE ${SOURCES}
-                                                   ${SOURCES_3RD_PARTY})
+    ${SOURCES_3RD_PARTY})
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/src)
 
@@ -278,7 +286,8 @@ target_include_directories(
   ${PROJECT_NAME} SYSTEM
   PUBLIC ${PROJECT_SOURCE_DIR}/3rdParty/qautostart/src
          ${PROJECT_SOURCE_DIR}/3rdParty/qmarkdowntextedit
-         ${PROJECT_SOURCE_DIR}/3rdParty/qxt)
+         ${PROJECT_SOURCE_DIR}/3rdParty/qxt
+         ${PROJECT_SOURCE_DIR}/3rdParty/md4c/src)
 
 if(UPDATE_CHECKER)
   target_include_directories(
@@ -312,13 +321,14 @@ if(QT_VERSION VERSION_GREATER_EQUAL 6.2)
       src/qml/CustomTextArea.qml
       src/qml/CustomTextField.qml
       src/qml/CustomVerticalScrollBar.qml
+      src/qml/EditorMain.qml
       src/qml/EditorSettings.qml
       src/qml/FontChooserButton.qml
       src/qml/FontIconLoader.qml
       src/qml/FontIconsCodes.qml
       src/qml/IconButton.qml
       src/qml/OptionItemButton.qml
-      src/qml/SubscriptionWindow.qml
+      src/qml/ProPaymentWindow.qml
       src/qml/SwitchButton.qml
       src/qml/TextButton.qml
       src/qml/ThemeChooserButton.qml
@@ -429,7 +439,17 @@ elseif(UNIX)
   install(FILES ${CMAKE_BINARY_DIR}/${APP_ID}.metainfo.xml
           DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/metainfo)
 
-  foreach(ICON_SIZE 128 256 512)
+  foreach(
+    ICON_SIZE
+    16
+    22
+    24
+    32
+    48
+    64
+    128
+    256
+    512)
     install(
       FILES
         ${PROJECT_SOURCE_DIR}/packaging/linux/common/icons/${ICON_SIZE}x${ICON_SIZE}/notes.png
@@ -493,7 +513,7 @@ elseif(UNIX)
     set(CPACK_DEBIAN_PACKAGE_DEPENDS "qt6-qpa-plugins")
     if(QT_VERSION_MINOR VERSION_GREATER_EQUAL 2)
       set(CPACK_DEBIAN_PACKAGE_DEPENDS
-          "${CPACK_DEBIAN_PACKAGE_DEPENDS}, qml6-module-qtqml-workerscript, qml6-module-qtquick-controls, qml6-module-qtquick-layouts, qml6-module-qtquick-particles, qml6-module-qtquick-templates, qml6-module-qtquick-window"
+          "${CPACK_DEBIAN_PACKAGE_DEPENDS}, qml6-module-qtqml-workerscript, qml6-module-qtquick-controls, qml6-module-qtquick-particles, qml6-module-qtquick-templates"
       )
     endif()
   elseif(QT_VERSION_MAJOR VERSION_EQUAL 5)
@@ -534,6 +554,16 @@ elseif(WIN32)
 
   target_link_libraries(${PROJECT_NAME} PUBLIC user32)
 endif()
+
+include(FetchContent)
+
+FetchContent_Declare(
+  maddy
+  URL https://github.com/progsource/maddy/releases/download/1.3.0/maddy-src.zip
+)
+FetchContent_MakeAvailable(maddy)
+
+target_link_libraries(${PROJECT_NAME} PUBLIC maddy)
 
 install(
   TARGETS ${PROJECT_NAME}

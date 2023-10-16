@@ -3,6 +3,7 @@
 #include <QEvent>
 #include <QDebug>
 #include <QApplication>
+#include <QFontDatabase>
 #include <QtMath>
 #include <QPainterPath>
 #include <QScrollBar>
@@ -16,7 +17,6 @@
 #include "taglistview.h"
 #include "taglistmodel.h"
 #include "taglistdelegate.h"
-#include "fontloader.h"
 
 NoteListDelegateEditor::NoteListDelegateEditor(const NoteListDelegate *delegate, NoteListView *view,
                                                const QStyleOptionViewItem &option,
@@ -290,8 +290,7 @@ void NoteListDelegateEditor::paintLabels(QPainter *painter, const QStyleOptionVi
 #else
             int iconPointSizeOffset = -4;
 #endif
-            painter->setFont(FontLoader::getInstance().loadFont("Font Awesome 6 Free Solid", "",
-                                                                14 + iconPointSizeOffset));
+            painter->setFont(QFont("Font Awesome 6 Free Solid", 14 + iconPointSizeOffset));
             painter->setPen(QColor(68, 138, 201));
             if (m_view->isPinnedNotesCollapsed()) {
                 painter->drawText(QRect(headerRect.right() - 25, headerRect.y() + 5, 16, 16),

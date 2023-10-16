@@ -34,5 +34,19 @@ ScrollBar {
             }
         }
     }
+
+    function keepActive () {
+        scrollBarControl.active = true;
+        loseActiveTimer.start();
+    }
+
+    Timer {
+        id: loseActiveTimer
+        interval: 2000
+
+        onTriggered: {
+            scrollBarControl.active = false;
+        }
+    }
 }
 

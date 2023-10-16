@@ -15,6 +15,7 @@
 
 #include "nodedata.h"
 #include "editorsettingsoptions.h"
+#include "blockmodel.h"
 
 class CustomDocument;
 class CustomMarkdownHighlighter;
@@ -33,7 +34,7 @@ public:
 #if QT_VERSION >= QT_VERSION_CHECK(6, 2, 0)
     explicit NoteEditorLogic(CustomDocument *textEdit, QLabel *editorDateLabel,
                              QLineEdit *searchEdit, QWidget *kanbanWidget, TagListView *tagListView,
-                             TagPool *tagPool, DBManager *dbManager, QObject *parent = nullptr);
+                             TagPool *tagPool, DBManager *dbManager, BlockModel *blockModel, QObject *parent = nullptr);
 
 #else
     explicit NoteEditorLogic(CustomDocument *textEdit, QLabel *editorDateLabel,
@@ -63,6 +64,7 @@ public:
 public slots:
     void showNotesInEditor(const QVector<NodeData> &notes);
     void onTextEditTextChanged();
+    void onBlockModelTextChanged();
     void closeEditor();
     void onNoteTagListChanged(int noteId, const QSet<int> &tagIds);
 #if QT_VERSION >= QT_VERSION_CHECK(6, 2, 0)
@@ -131,6 +133,7 @@ private:
     QColor m_spacerColor;
     int m_currentAdaptableEditorPadding;
     int m_currentMinimumEditorPadding;
+    BlockModel *m_blockModel;
 };
 
 #endif // NOTEEDITORLOGIC_H

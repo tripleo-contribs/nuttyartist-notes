@@ -5,7 +5,6 @@
 #include "nodetreemodel.h"
 #include "nodetreeview.h"
 #include "notelistview.h"
-#include "fontloader.h"
 
 TrashButtonDelegateEditor::TrashButtonDelegateEditor(QTreeView *view,
                                                      const QStyleOptionViewItem &option,
@@ -74,8 +73,7 @@ void TrashButtonDelegateEditor::paintEvent(QPaintEvent *event)
 #else
     int iconPointSizeOffset = -4;
 #endif
-    painter.setFont(FontLoader::getInstance().loadFont("Font Awesome 6 Free Solid", "",
-                                                       16 + iconPointSizeOffset));
+    painter.setFont(QFont("Font Awesome 6 Free Solid", 16 + iconPointSizeOffset));
     painter.drawText(iconRect, iconPath); // fa-trash
 
     if (m_view->selectionModel()->isSelected(m_index)) {
