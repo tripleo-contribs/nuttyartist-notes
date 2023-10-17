@@ -126,6 +126,9 @@ BlockInfo::BlockType BlockInfo::determineBlockType(QString text)
             } else {
                 m_metaData["taskChecked"] = false;
             }
+            if (m_metaData.isEmpty()) {
+                qDebug() << "m_metaData IS EMPTY!";
+            }
             emit metaDataChanged();
             setBlockDelimiter(prefix);
             setBlockType(BlockType::Todo);

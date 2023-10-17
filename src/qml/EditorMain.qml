@@ -1,7 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import MarkdownHighlighter 1.0
-import com.company.BlockModel
+import com.company.BlockModel 1.0
 import nuttyartist.notes 1.0
 import QtQuick.Controls.Universal 2.15
 
@@ -15,7 +15,18 @@ Rectangle {
     property string platform: "Other"
     property int qtVersion: 6
     property var themeData: ({backgroundColor: "white"})
-    property int currentFontPointSize: 13
+    property int currentFontPointBaseSize: 13
+    property int currentFontPointSize: if (blockEditorView.width < 420) {
+                                           root.currentFontPointBaseSize - 2
+                                       } else if (blockEditorView.width >= 420 && blockEditorView.width <= 1250) {
+                                           currentFontPointBaseSize
+                                       } else { //if (blockEditorView.width > 1250) {
+                                           if (root.platform === "Apple") {
+                                               root.currentFontPointBaseSize + 2
+                                           } else {
+                                               root.currentFontPointBaseSize + 1
+                                           }
+                                       }
     property string currentEditorTextColor: root.themeData.theme === "Dark" ? "white" : "black"
     property int pointSizeOffset: platform === "Apple" ? 0: -3
 
@@ -58,12 +69,25 @@ Rectangle {
                             root.listOfSerifFonts[root.chosenSerifFontIndex] :
                             root.currentFontTypeface === "Mono" ?
                                 root.listOfMonoFonts[root.chosenMonoFontIndex] : "";
-            root.currentFontPointSize = data.currentFontPointSize;
+            root.currentFontPointBaseSize = data.currentFontPointSize;
             root.currentEditorTextColor = data.currentEditorTextColor;
         }
     }
 
-    property int editorRightLeftPadding: 53
+    property int editorRightLeftPadding: if (blockEditorView.width <= 420) {
+                                             18
+                                         } else if (blockEditorView.width > 420 && blockEditorView.width <= 515) {
+                                             43
+                                         } else if (blockEditorView.width > 515 && blockEditorView.width <= 755) {
+                                             53
+                                         } else if (blockEditorView.width > 755 && blockEditorView.width <= 775) {
+                                             63
+                                         } else if (blockEditorView.width > 755 && blockEditorView.width <= 800) {
+                                             73
+                                         } else if (blockEditorView.width > 800) {
+                                             83
+                                         }
+//    property int editorRightLeftPadding: 53
     property real editorWidth: root.width
     property string accentColor: "#2383e2"
     property string selectionColor: root.themeData.theme === "Dark" ? "#31353a" : "#d2e4fa" // "#e9f2fd"
@@ -198,86 +222,89 @@ Rectangle {
         }
     }
 
-    Rectangle {
-        id: animatedCursor
-        property bool showCursor: true
-        visible: showCursor && root.selectedBlock && root.selectedBlockIndexes.length <= 1 && root.selectedBlock.textEditorPointer.selectedText.length === 0
-        width: root.selectedBlock ? root.selectedBlock.blockType === BlockInfo.Heading ? 3 : 2 : 0
-        color: "#007bff"
-        z: 1
-        // TODO: Is there a better way to make these bindings work than these weird conditions?
-        property rect selectedBlockCursorRect: root.canUpdateCursorPos && root.selectedBlock && root.selectedBlock.textEditorPointer.height > 0 ? root.selectedBlock.textEditorPointer.positionToRectangle(root.selectedBlock.textEditorPointer.cursorPosition) : root.selectedBlock? root.lastCursorRect : Qt.rect(0,0,0,0)
-        height: root.selectedBlock ? selectedBlockCursorRect.height : 0
-        x: root.selectedBlock && root.selectedBlock.textEditorPointer.x > -200 && root.selectedBlock.delimiterAndTextRowPointer.x >= -200 ? root.mapFromItem(root.selectedBlock.textEditorPointer, selectedBlockCursorRect.x, selectedBlockCursorRect.y).x : 0
-        y: root.selectedBlock && root.selectedBlock.y >= 0 && root.selectedBlock.textEditorPointer.y > -200 && blockEditorView.contentY > -200 ? root.mapFromItem(root.selectedBlock.textEditorPointer, selectedBlockCursorRect.x, selectedBlockCursorRect.y).y : 0
-        property bool enabledPressAnimation: false
+//    Rectangle {
+//        id: animatedCursor
+//        property bool showCursor: true
+//        visible: showCursor && root.selectedBlock && root.selectedBlockIndexes.length <= 1 && root.selectedBlock.textEditorPointer.selectedText.length === 0
+//        width: root.selectedBlock ? root.selectedBlock.blockType === BlockInfo.Heading ? 3 : 2 : 0
+//        color: "#007bff"
+//        z: 1
+//        // TODO: Is there a better way to make these bindings work than these weird conditions?
+//        //        property rect selectedBlockCursorRect: root.canUpdateCursorPos && root.selectedBlock && root.selectedBlock.textEditorPointer.height > 0 ? root.selectedBlock.textEditorPointer.positionToRectangle(root.selectedBlock.textEditorPointer.cursorPosition) : root.selectedBlock? root.lastCursorRect : Qt.rect(0,0,0,0)
+//        property rect selectedBlockCursorRect: root.canUpdateCursorPos && root.selectedBlock ? root.selectedBlock.textEditorPointer.cursorRectangle : root.selectedBlock ? root.lastCursorRect : Qt.rect(0,0,0,0)
+//        height: root.selectedBlock ? root.selectedBlock.textEditorPointer.cursorRectangle.height : 0 //selectedBlockCursorRect.height : 0
+////        x: root.selectedBlock && root.selectedBlock.textEditorPointer.x > -200 && root.selectedBlock.delimiterAndTextRowPointer.x >= -200 ? root.mapFromItem(root.selectedBlock.textEditorPointer, selectedBlockCursorRect.x, selectedBlockCursorRect.y).x : 0
+////        y: root.selectedBlock && root.selectedBlock.y >= 0 && root.selectedBlock.textEditorPointer.y > -200 && blockEditorView.contentY > -200 ? root.mapFromItem(root.selectedBlock.textEditorPointer, selectedBlockCursorRect.x, selectedBlockCursorRect.y).y : 0
+//        x: root.mapFromItem(root.selectedBlock.textEditorPointer, selectedBlockCursorRect.x, selectedBlockCursorRect.y).x
+//        y: root.mapFromItem(root.selectedBlock.textEditorPointer, selectedBlockCursorRect.x, selectedBlockCursorRect.y).y
+//        property bool enabledPressAnimation: false
 
-        Behavior on x {
-            enabled: root.enableCursorAnimation
-            SmoothedAnimation {
-                duration: root.cursorCurrentAnimationSpeed
-                easing.type: Easing.OutExpo
-            }
-        }
+//        Behavior on x {
+//            enabled: root.enableCursorAnimation
+//            SmoothedAnimation {
+//                duration: root.cursorCurrentAnimationSpeed
+//                easing.type: Easing.OutExpo
+//            }
+//        }
 
-        Behavior on y {
-            enabled: root.enableCursorAnimation && (!verticalScrollBar.active || root.isAnyKeyPressed)
-            SmoothedAnimation {
-                duration: root.cursorCurrentAnimationSpeed
-                easing.type: Easing.OutExpo
-            }
-        }
+//        Behavior on y {
+//            enabled: root.enableCursorAnimation && (!verticalScrollBar.active || root.isAnyKeyPressed)
+//            SmoothedAnimation {
+//                duration: root.cursorCurrentAnimationSpeed
+//                easing.type: Easing.OutExpo
+//            }
+//        }
 
-        Behavior on height {
-            SmoothedAnimation {
-                duration: root.cursorCurrentAnimationSpeed
-                easing.type: Easing.OutExpo
-            }
-        }
+//        Behavior on height {
+//            SmoothedAnimation {
+//                duration: root.cursorCurrentAnimationSpeed
+//                easing.type: Easing.OutExpo
+//            }
+//        }
 
-        Connections {
-            target: root
+//        Connections {
+//            target: root
 
-            function onAnyKeyPressed () {
-                animatedCursor.showCursor = true;
-            }
+//            function onAnyKeyPressed () {
+//                animatedCursor.showCursor = true;
+//            }
 
-            function onCursorHidden () {
-                animatedCursor.showCursor = false;
-            }
+//            function onCursorHidden () {
+//                animatedCursor.showCursor = false;
+//            }
 
-            function onCursorShowed () {
-                animatedCursor.showCursor = true;
-            }
-        }
+//            function onCursorShowed () {
+//                animatedCursor.showCursor = true;
+//            }
+//        }
 
-        // TODO: this might take some uneccesary CPU compute on idle
-        // We need to disable this when the window isn't in focus
-        SequentialAnimation {
-            loops: Animation.Infinite
-            running: root.cursorAnimationRunning
+//        // TODO: this might take some uneccesary CPU compute on idle
+//        // We need to disable this when the window isn't in focus
+//        SequentialAnimation {
+//            loops: Animation.Infinite
+//            running: root.cursorAnimationRunning
 
-            PropertyAction {
-                target: animatedCursor
-                property: "showCursor"
-                value: true
-            }
+//            PropertyAction {
+//                target: animatedCursor
+//                property: "showCursor"
+//                value: true
+//            }
 
-            PauseAnimation {
-                duration: 500
-            }
+//            PauseAnimation {
+//                duration: 500
+//            }
 
-            PropertyAction {
-                target: animatedCursor
-                property: "showCursor"
-                value: false
-            }
+//            PropertyAction {
+//                target: animatedCursor
+//                property: "showCursor"
+//                value: false
+//            }
 
-            PauseAnimation {
-                duration: 500
-            }
-        }
-    }
+//            PauseAnimation {
+//                duration: 500
+//            }
+//        }
+//    }
 
     ListView {
         id: blockEditorView
@@ -286,7 +313,7 @@ Rectangle {
         topMargin: 45
         bottomMargin: 45
         anchors.fill: parent
-//        reuseItems: true // TODO: Learn how to use this because it gives huge performance boost
+        reuseItems: true // TODO: Learn how to use this because it gives huge performance boost
 
         Keys.onPressed: (event) => {
             if (event.key === Qt.Key_Down || event.key === Qt.Key_Up ||
@@ -359,6 +386,7 @@ Rectangle {
                                             } else {
                                                 -1
                                             }
+            property bool enableAnimation: true
 
             width: root.width
             height: textEditor.implicitHeight
@@ -451,23 +479,32 @@ Rectangle {
             }
 
             Behavior on height {
+                enabled: delegate.enableAnimation
                 SmoothedAnimation {
                     duration: 300
                     easing.type: Easing.OutExpo
                 }
             }
 
-//            ListView.onPooled: {
+            ListView.onPooled: {
+                delegate.enableAnimation = false;
 //                console.log("pooled: ", delegate.blockTextPlainText);
-//            }
+            }
 
-//            ListView.onReused: {
+            ListView.onReused: {
+                delegate.enableAnimation = true;
 //                console.log("reused: ", delegate.blockTextPlainText);
-//            }
+            }
 
             ListView.onAdd: {
                 if (root.blockIndexToFocusOn !== -1 && delegate.index === root.blockIndexToFocusOn) {
                     console.log("added");
+//                    root.canUpdateCursorPos = true;
+//                    root.enableCursorAnimation = true;
+                    blockCreationDelegateAnimation.start();
+                    blockCreationTextAnimation.start();
+                    textEditorPointer.cursorPosition = 0;
+                    textEditorPointer.forceActiveFocus();
                     root.selectedBlock = delegate;
                     console.log("selectedBlock 3: ", delegate.index);
                     root.blockIndexToFocusOn = -1;
@@ -484,12 +521,10 @@ Rectangle {
                         console.log("delegate: ", delegate);
                         console.log("from view: ", blockEditorView.itemAtIndex(root.selectedBlockIndexes[0]));
                         console.log("finished");
-                        root.enableCursorAnimation = true;
-                        blockCreationDelegateAnimation.start();
-                        blockCreationTextAnimation.start();
-                        delegate.forceActiveFocus();
-                        textEditorPointer.cursorPosition = 0;
-                        textEditorPointer.forceActiveFocus();
+//                        root.canUpdateCursorPos = true;
+//                        root.enableCursorAnimation = true;
+//                        blockCreationDelegateAnimation.start();
+//                        blockCreationTextAnimation.start();
                         root.selectedBlockIndexes = [delegate.index];
                         selectionArea.selStartIndex = delegate.index;
                         selectionArea.selStartPos = 0;
@@ -535,6 +570,7 @@ Rectangle {
                 property real delimiterAndTextRowX: editorRightLeftPadding + delegate.blockIndentLevel * root.defaultIndentWidth - (delegate.blockType === BlockInfo.Todo ? todoDelimiter.width/2 + 2 : 0)
 
                 Behavior on x {
+                    enabled: delegate.enableAnimation
                     SmoothedAnimation {
                         duration: 300
                         easing.type: Easing.OutExpo
@@ -562,6 +598,7 @@ Rectangle {
                     color: root.accentColor
 
                     Behavior on height {
+                        enabled: delegate.enableAnimation
                         SmoothedAnimation {
                             duration: 300
                             easing.type: Easing.OutExpo
@@ -625,6 +662,7 @@ Rectangle {
                     wrapMode: Text.NoWrap
 
                     Behavior on font.pixelSize {
+                        enabled: delegate.enableAnimation
                         SmoothedAnimation {
                             duration: 300
                             easing.type: Easing.OutExpo
@@ -638,7 +676,7 @@ Rectangle {
                     anchors.top: textEditor.top
                     anchors.topMargin: (-height/4)
                     theme: root.themeData.theme
-                    checked: delegate.blockType === BlockInfo.Todo && delegate.blockMetaData ? delegate.blockMetaData["taskChecked"] : false
+                    checked: delegate.blockType === BlockInfo.Todo && delegate.blockMetaData["taskChecked"] ? true : false
 
                     onTaskChecked: {
                         root.selectedBlockIndexes = [delegate.index];
@@ -766,7 +804,7 @@ Rectangle {
                     cursorDelegate: Rectangle {
                         id: cursorDelegateObject
                         visible: true
-                        color: "transparent" //"transparent" //root.accentColor
+                        color: root.accentColor //"transparent" //root.accentColor
                         width: delegate.blockType === BlockInfo.Heading ? 3 : 2
 
                         Connections {
@@ -785,33 +823,42 @@ Rectangle {
                             }
                         }
 
-//                        SequentialAnimation {
-//                            loops: Animation.Infinite
-//                            running: textEditor.cursorAnimationRunning
+                        SequentialAnimation {
+                            loops: Animation.Infinite
+                            running: textEditor.cursorAnimationRunning
 
-//                            PropertyAction {
-//                                target: cursorDelegateObject
-//                                property: 'visible'
-//                                value: true
-//                            }
+                            PropertyAction {
+                                target: cursorDelegateObject
+                                property: 'visible'
+                                value: true
+                            }
 
-//                            PauseAnimation {
-//                                duration: 500
-//                            }
+                            PauseAnimation {
+                                duration: 500
+                            }
 
-//                            PropertyAction {
-//                                target: cursorDelegateObject
-//                                property: 'visible'
-//                                value: false
-//                            }
+                            PropertyAction {
+                                target: cursorDelegateObject
+                                property: 'visible'
+                                value: false
+                            }
 
-//                            PauseAnimation {
-//                                duration: 500
-//                            }
-//                        }
+                            PauseAnimation {
+                                duration: 500
+                            }
+                        }
                     }
 
                     Behavior on x {
+                        enabled: delegate.enableAnimation
+                        SmoothedAnimation {
+                            duration: 300
+                            easing.type: Easing.OutExpo
+                        }
+                    }
+
+                    Behavior on height {
+                        enabled: delegate.enableAnimation
                         SmoothedAnimation {
                             duration: 300
                             easing.type: Easing.OutExpo
@@ -819,6 +866,7 @@ Rectangle {
                     }
 
                     Behavior on font.pointSize {
+                        enabled: delegate.enableAnimation
                         SmoothedAnimation {
                             duration: 300
                             easing.type: Easing.OutExpo
@@ -1125,7 +1173,7 @@ Rectangle {
                                             // If a quote block
                                             if (textEditor.getText(cursorPosition - 1, cursorPosition) === "\u2028") { // Unicode line separator
                                                 // There's a line break at the last line without text
-                                                root.lastCursorRect = textEditor.positionToRectangle(cursorPosition);
+                                                root.lastCursorRect = textEditor.cursorRectangle;
                                                 root.canUpdateCursorPos = false;
                                                 BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length - 1));
                                                 BlockModel.insertNewBlock(delegate.index, "");
@@ -1358,7 +1406,7 @@ Rectangle {
         onPressed: (mouse) => {
            // TODO: the use of indexAndPos is highly redundant here
             root.enableCursorAnimation = false;
-            animatedCursor.enabledPressAnimation = true;
+//            animatedCursor.enabledPressAnimation = true;
            const [index, pos] = indexAndPos(mouse.x, mouse.y);
            var blockDelegate = blockEditorView.itemAtIndex(index);
            if (blockDelegate !== null && index !== -1) {

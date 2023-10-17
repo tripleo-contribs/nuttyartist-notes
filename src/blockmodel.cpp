@@ -261,9 +261,9 @@ void BlockModel::setTextAtIndex(const int blockIndex, QString qmlHtml)
         return;
     }
 
-    qDebug() << "Changing!";
+//    qDebug() << "Changing!";
 
-    qDebug() << "markdown 3: " << markdown;
+//    qDebug() << "markdown 3: " << markdown;
 
     blockInfo->determineBlockType(markdown);
     updateSourceTextBetweenLines(blockInfo->lineStartPos(), blockInfo->lineEndPos(), markdown);
@@ -293,9 +293,9 @@ void BlockModel::clear()
 // TODO: This function slows the app down (writing lag) when the text is very large (e.g. Moby Dick)
 void BlockModel::updateSourceTextBetweenLines(unsigned int startLinePos, unsigned int endLinePos, const QString &newText)
 {
-    qDebug() << "startLinePos: " << startLinePos;
-    qDebug() << "endLinePos: " << endLinePos;
-    qDebug() << "sourceDocument before: " << m_sourceDocument.toPlainText();
+//    qDebug() << "startLinePos: " << startLinePos;
+//    qDebug() << "endLinePos: " << endLinePos;
+//    qDebug() << "sourceDocument before: " << m_sourceDocument.toPlainText();
 
     QTextBlock startBlock = m_sourceDocument.findBlockByLineNumber(startLinePos);
     QTextBlock endBlock = m_sourceDocument.findBlockByLineNumber(endLinePos);
@@ -304,7 +304,7 @@ void BlockModel::updateSourceTextBetweenLines(unsigned int startLinePos, unsigne
     cursor.removeSelectedText();
     cursor.insertText(newText);
 
-    qDebug() << "sourceDocument after: " << m_sourceDocument.toPlainText();
+//    qDebug() << "sourceDocument after: " << m_sourceDocument.toPlainText();
 }
 
 void BlockModel::indentBlocks(QList<int> selectedBlockIndexes)
@@ -569,7 +569,7 @@ void BlockModel::insertNewBlock(int blockIndex, QString qmlHtml)
     // Preserve delimiter
     markdown = newBlockInfo->blockDelimiter() + markdown;
     // Preserve indentation
-    qDebug() << "newBlockInfo->totalindentlength: " << newBlockInfo->totalIndentLength();
+//    qDebug() << "newBlockInfo->totalindentlength: " << newBlockInfo->totalIndentLength();
     if (newBlockInfo->totalIndentLength() > 0)
         markdown = newBlockInfo->indentedString() + markdown;
 
