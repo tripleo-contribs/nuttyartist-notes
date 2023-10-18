@@ -145,7 +145,6 @@ void BlockModel::determineBlockIndentAndParentChildRelationship(BlockInfo* block
         return;
 
     if (blockInfo->indentLevel() == 0 && blockInfo->parent() != nullptr) {
-//        qDebug() << "000000000000000000";
         blockInfo->parent()->removeChild(blockInfo);
         blockInfo->setParent(nullptr);
         return;
@@ -159,16 +158,12 @@ void BlockModel::determineBlockIndentAndParentChildRelationship(BlockInfo* block
        // We assign it has a parent for the current block
         if (previousBlock->totalIndentLength() < blockInfo->totalIndentLength()) {
 
-//            qDebug() << "11111111111111111111111111111";
-
             // If parent is changing, we remove this block from its children
             if (blockInfo->parent() != nullptr && blockInfo->parent() != previousBlock) {
-//                qDebug() << "222222222222222222222222222222";
                 blockInfo->parent()->removeChild(blockInfo);
             }
 
             blockInfo->setIndentLevel(previousBlock->indentLevel() + 1);
-//            qDebug() << "previous block text: " << previousBlock->textPlainText();
             blockInfo->setParent(previousBlock);
             previousBlock->addChild(blockInfo);
             break;
