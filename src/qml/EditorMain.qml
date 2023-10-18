@@ -837,30 +837,30 @@ Rectangle {
                             }
                         }
 
-//                        SequentialAnimation {
-//                            loops: Animation.Infinite
-//                            running: !delegate.isPooled && textEditor.cursorAnimationRunning
+                        SequentialAnimation {
+                            loops: Animation.Infinite
+                            running: !delegate.isPooled && textEditor.cursorAnimationRunning
 
-//                            PropertyAction {
-//                                target: cursorDelegateObject
-//                                property: 'visible'
-//                                value: true
-//                            }
+                            PropertyAction {
+                                target: cursorDelegateObject
+                                property: 'visible'
+                                value: true
+                            }
 
-//                            PauseAnimation {
-//                                duration: 500
-//                            }
+                            PauseAnimation {
+                                duration: 500
+                            }
 
-//                            PropertyAction {
-//                                target: cursorDelegateObject
-//                                property: 'visible'
-//                                value: false
-//                            }
+                            PropertyAction {
+                                target: cursorDelegateObject
+                                property: 'visible'
+                                value: false
+                            }
 
-//                            PauseAnimation {
-//                                duration: 500
-//                            }
-//                        }
+                            PauseAnimation {
+                                duration: 500
+                            }
+                        }
                     }
 
                     Behavior on x {

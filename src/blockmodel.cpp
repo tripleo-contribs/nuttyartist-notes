@@ -197,8 +197,8 @@ void BlockModel::loadText(const QString& text)
 
     emit aboutToLoadText();
     clear();
-    m_sourceDocument.setPlainText(text);
-    QStringList lines = text.split("\n");
+    m_sourceDocument.setPlainText(text); // 40% performance hit
+    QStringList lines = text.split("\n"); // TODO: Should we use Qt::SkipEmptyParts?
 
     beginInsertRows(QModelIndex(), 0, lines.size() - 1);
 
@@ -222,7 +222,7 @@ void BlockModel::loadText(const QString& text)
 void BlockModel::clear()
 {
     beginResetModel();
-    qDeleteAll(m_blockList);
+    qDeleteAll(m_blockList); // TODO: this is extremly slow 2-4x slower than loading. How to optimize this?
     m_blockList.clear();
     endResetModel();
 }
