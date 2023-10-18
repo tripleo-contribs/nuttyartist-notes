@@ -192,22 +192,39 @@ void BlockModel::updateBlockUsingPlainText(BlockInfo* blockInfo, unsigned int bl
 
 void BlockModel::loadText(const QString& text)
 {
+    QElapsedTimer timer;
+    timer.start();
+
     emit aboutToLoadText();
     clear();
     m_sourceDocument.setPlainText(text);
     QStringList lines = text.split("\n");
 
+    beginInsertRows(QModelIndex(), 0, lines.size() - 1);
+
     unsigned int blockIndex = 0;
     for (auto &line: lines) {
-        beginInsertRows(QModelIndex(), m_blockList.length(), m_blockList.length());
         BlockInfo *blockInfo = new BlockInfo(this);
         updateBlockUsingPlainText(blockInfo, blockIndex, line);
         m_blockList << blockInfo;
-        endInsertRows();
         blockIndex++;
     }
+
+    endInsertRows();
     qDebug() << "Finished loading.";
     emit loadTextFinished();
+
+    qint64 elapsed = timer.elapsed();
+    qDebug() << "Time taken:" << elapsed << "ms";
+
+}
+
+void BlockModel::clear()
+{
+    beginResetModel();
+    qDeleteAll(m_blockList);
+    m_blockList.clear();
+    endResetModel();
 }
 
 void BlockModel::updateBlocksLinePositions(unsigned int blockPosition, int delta)
@@ -275,14 +292,6 @@ void BlockModel::setTextAtIndex(const int blockIndex, QString qmlHtml)
     QModelIndex modelIdx = this->index(blockIndex);
     emit dataChanged(modelIdx, modelIdx, {}); // TODO: Empty vector means all roles, is that good?
     emit textChangeFinished();
-}
-
-void BlockModel::clear()
-{
-    beginResetModel();
-    qDeleteAll(m_blockList);
-    m_blockList.clear();
-    endResetModel();
 }
 
 // TODO: This function slows the app down (writing lag) when the text is very large (e.g. Moby Dick)

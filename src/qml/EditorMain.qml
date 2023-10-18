@@ -1274,12 +1274,12 @@ Rectangle {
                     onTextChanged: {
 //                        console.log("BLOCK TEXT CHANGED: ", delegate);
                         if (!delegate.isPooled) {
-                            console.log("onTextChanged");
+//                            console.log("onTextChanged");
                             cursorPosition = root.lastCursorPos;
-                            console.log("cursorPosition 3");
+//                            console.log("cursorPosition 3");
                             if (root.selectedBlock === delegate && root.isAnyKeyPressed && !root.isProgrammaticChange && root.selectedBlockIndexes.length <= 1) {
                                 if(delegate.blockType !== BlockInfo.Divider) {
-                                    console.log("In setTextAtIndex");
+//                                    console.log("In setTextAtIndex");
                                     BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length));
                                     delegate.lastBlockType = delegate.blockType;
 //                                    root.selectedBlockIndexes = [delegate.index];

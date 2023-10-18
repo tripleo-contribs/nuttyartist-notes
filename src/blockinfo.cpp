@@ -100,7 +100,7 @@ BlockInfo::BlockType BlockInfo::determineBlockType(QString text)
 {
     text = trimLeadingWhitespaces(text);
 
-    const QStringList headingPrefixes = {"# ", "## ", "### ", "#### ", "##### ", "###### "};
+    static const QStringList headingPrefixes = {"# ", "## ", "### ", "#### ", "##### ", "###### "};
     for (const QString &prefix : headingPrefixes) {
         if (text.startsWith(prefix)) {
             setBlockDelimiter(prefix);
@@ -109,7 +109,7 @@ BlockInfo::BlockType BlockInfo::determineBlockType(QString text)
         }
     }
 
-    const QStringList quotePrefixes = {"| ", "> ", ">> ", ">>> "};
+    static const QStringList quotePrefixes = {"| ", "> ", ">> ", ">>> "};
     for (const QString &prefix : quotePrefixes) {
         if (text.startsWith(prefix)) {
             setBlockDelimiter(prefix);
@@ -118,7 +118,7 @@ BlockInfo::BlockType BlockInfo::determineBlockType(QString text)
         }
     }
 
-    const QStringList todoItemPrefixes = {"[ ] ", "[x] ", "- [ ] ", "* [ ] ", "+ [ ] ", "- [x] ", "* [x] ", "+ [x] "};
+    static const QStringList todoItemPrefixes = {"[ ] ", "[x] ", "- [ ] ", "* [ ] ", "+ [ ] ", "- [x] ", "* [x] ", "+ [x] "};
     for (const QString &prefix : todoItemPrefixes) {
         if (text.startsWith(prefix)) {
             if (text[1] == 'x' || text[1] == 'X' || text[3] == 'x' || text[3] == 'X') {
@@ -136,7 +136,7 @@ BlockInfo::BlockType BlockInfo::determineBlockType(QString text)
         }
     }
 
-    const QStringList bulletItemPrefixes = {"- ", "* ", "+ "};
+    static const QStringList bulletItemPrefixes = {"- ", "* ", "+ "};
     for (const QString &prefix : bulletItemPrefixes) {
         if (text.startsWith(prefix)) {
             setBlockDelimiter(prefix);
