@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.25)
+cmake_minimum_required(VERSION 3.21)
 
 set(APP_VERSION 2.2.0)
 set(APP_ID "io.github.nuttyartist.notes")
@@ -556,14 +556,6 @@ elseif(WIN32)
 endif()
 
 include(FetchContent)
-
-FetchContent_Declare(
-  maddy
-  URL https://github.com/progsource/maddy/releases/download/1.3.0/maddy-src.zip
-)
-FetchContent_MakeAvailable(maddy)
-
-target_link_libraries(${PROJECT_NAME} PUBLIC maddy)
 
 install(
   TARGETS ${PROJECT_NAME}
