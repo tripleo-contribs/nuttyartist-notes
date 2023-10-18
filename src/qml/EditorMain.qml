@@ -154,6 +154,7 @@ Rectangle {
         if (block !== null && block.textEditorPointer !== null) {
             console.log("In blockToFocusOn");
             console.log("blockIndex: ", blockIndex);
+            block.textEditorPointer.cursorVisible = true;
             block.textEditorPointer.cursorShowed();
             block.textEditorPointer.cursorPosition = root.lastCursorPos;
             block.textEditorPointer.forceActiveFocus();
