@@ -24,7 +24,7 @@ ScrollBar {
     }
 
     contentItem: Rectangle {
-        implicitWidth: scrollBarControl.hovered ? 12 : 7
+        implicitWidth: scrollBarControl.hovered || scrollBarControl.pressed ? 12 : 7
         radius: width / 2
         color: scrollBarControl.pressed ? (scrollBarControl.themeData.theme === "Dark" ? (scrollBarControl.isDarkGray ? "#858185" : "#040404") :"#5e5d5d") : (scrollBarControl.themeData.theme === "Dark" ? (scrollBarControl.isDarkGray ? "#a29ea2" : "#0e0e0e") : "#7d7d7d")
         opacity: scrollBarControl.policy === ScrollBar.AlwaysOn || (scrollBarControl.active && scrollBarControl.size < 1.0) ? 0.75 : 0
