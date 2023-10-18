@@ -8,7 +8,6 @@
 #include <QTextBlock>
 #include <QTextCursor>
 #include <QElapsedTimer>
-#include <QRegularExpression>
 
 #include "blockinfo.h"
 

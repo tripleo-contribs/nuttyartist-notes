@@ -91,23 +91,14 @@ signals:
     void textHtmlChanged();
     void textPlainTextChanged();
     void blockTypeChanged();
-
     void lineStartPosChanged();
-
     void lineEndPosChanged();
-
     void totalIndentLengthChanged();
-
     void childrenChanged();
-
     void parentChanged();
-
     void indentLevelChanged();
-
     void blockDelimiterChanged();
-
     void indentedStringChanged();
-
     void metaDataChanged();
 
 private:

@@ -146,6 +146,12 @@ Rectangle {
         function onNewBlockCreated(blockIndex : int) {
             root.blockIndexToFocusOn = blockIndex;
         }
+
+        function onCtrlReturnPressed() {
+            if (root.selectedBlock && root.selectedBlock.blockType === BlockInfo.Todo) {
+                BlockModel.toggleTaskAtIndex(root.selectedBlock.index);
+            }
+        }
     }
 
     function blockToFocusOn(blockIndex : int) {
@@ -221,10 +227,10 @@ Rectangle {
         }
     }
 
-    onSelectedBlockChanged: {
-        if (root.selectedBlock)
-            console.log("SELECTED BLOCK CHANGED: ", root.selectedBlock.index, root.selectedBlock.blockTextPlainText);
-    }
+//    onSelectedBlockChanged: {
+//        if (root.selectedBlock)
+//            console.log("SELECTED BLOCK CHANGED: ", root.selectedBlock.index, root.selectedBlock.blockTextPlainText);
+//    }
 
 //    Rectangle {
 //        id: animatedCursor
@@ -1182,70 +1188,74 @@ Rectangle {
                     }
 
                     Keys.onReturnPressed: {
-                        root.enableCursorAnimation = false;
-                        if (root.selectedBlockIndexes.length === 1) {
-                            if (isHoldingShift) {
-                                // soft break
-                                textEditor.insert(cursorPosition, "<br />"); // It proved too difficult to do this simple thing in the C++ model due to inconssitencies between the qml and c++ formatting of html/markdown
-                                BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length));
-                                checkIfToScrollDown();
-                            } else {
-                                // hard break
-                                if (cursorPosition === textEditor.length) {
-                                    // cursor is at end of text
-                                    if (textEditor.length === 0 && delegate.blockType !== BlockInfo.RegularText && delegate.blockType !== BlockInfo.Divider) {
-                                        // if text length == 0 and user hits enter, we usually want to remove the delimiter
-                                        BlockModel.backSpaceAtStartOfBlockTextPressed(delegate.index);
-                                    } else {
-                                        // cursor is at end of text and the text is not empty
-                                        if (delegate.blockType === BlockInfo.Quote || delegate.blockType === BlockInfo.DropCap) {
-                                            // If a quote block or a drop cap
-                                            if (textEditor.getText(cursorPosition - 1, cursorPosition) === "\u2028") { // Unicode line separator
-                                                // There's a line break at the last line without text
-                                                root.lastCursorRect = textEditor.cursorRectangle;
-                                                root.canUpdateCursorPos = false;
-                                                BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length - 1));
+                        if (root.isHoldingControl && delegate.blockType === BlockInfo.Todo) {
+                            BlockModel.toggleTaskAtIndex(delegate.index);
+                        } else if (!root.isHoldingControl){
+                            root.enableCursorAnimation = false;
+                            if (root.selectedBlockIndexes.length === 1) {
+                                if (isHoldingShift) {
+                                    // soft break
+                                    textEditor.insert(cursorPosition, "<br />"); // It proved too difficult to do this simple thing in the C++ model due to inconssitencies between the qml and c++ formatting of html/markdown
+                                    BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length));
+                                    checkIfToScrollDown();
+                                } else {
+                                    // hard break
+                                    if (cursorPosition === textEditor.length) {
+                                        // cursor is at end of text
+                                        if (textEditor.length === 0 && delegate.blockType !== BlockInfo.RegularText && delegate.blockType !== BlockInfo.Divider) {
+                                            // if text length == 0 and user hits enter, we usually want to remove the delimiter
+                                            BlockModel.backSpaceAtStartOfBlockTextPressed(delegate.index);
+                                        } else {
+                                            // cursor is at end of text and the text is not empty
+                                            if (delegate.blockType === BlockInfo.Quote || delegate.blockType === BlockInfo.DropCap) {
+                                                // If a quote block or a drop cap
+                                                if (textEditor.getText(cursorPosition - 1, cursorPosition) === "\u2028") { // Unicode line separator
+                                                    // There's a line break at the last line without text
+                                                    root.lastCursorRect = textEditor.cursorRectangle;
+                                                    root.canUpdateCursorPos = false;
+                                                    BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length - 1));
+                                                    BlockModel.insertNewBlock(delegate.index, "");
+                                                    checkIfToScrollDown();
+                                                } else {
+                                                    // There's text at the last line, therefore
+                                                    // imitate soft break
+                                                    console.log("RAR 2");
+                                                    textEditor.insert(cursorPosition, "<br />"); // It proved too difficult to do this simple thing in the C++ model due to inconssitencies between the qml and c++ formatting of html/markdown
+                                                    BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length));
+                                                    checkIfToScrollDown();
+                                                }
+                                            } else {
+                                                // If not a quote block and cursor is at the end
+                                                // hard break
                                                 BlockModel.insertNewBlock(delegate.index, "");
                                                 checkIfToScrollDown();
-                                            } else {
-                                                // There's text at the last line, therefore
-                                                // imitate soft break
-                                                console.log("RAR 2");
-                                                textEditor.insert(cursorPosition, "<br />"); // It proved too difficult to do this simple thing in the C++ model due to inconssitencies between the qml and c++ formatting of html/markdown
-                                                BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length));
-                                                checkIfToScrollDown();
                                             }
+                                        }
+                                    } else {
+                                        if (delegate.blockType === BlockInfo.Quote) {
+                                            // imitate soft break
+                                            textEditor.insert(cursorPosition, "<br />"); // It proved too difficult to do this simple thing in the C++ model due to inconssitencies between the qml and c++ formatting of html/markdown
+                                            BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length));
+                                            checkIfToScrollDown();
                                         } else {
-                                            // If not a quote block and cursor is at the end
-                                            // hard break
-                                            BlockModel.insertNewBlock(delegate.index, "");
+                                            // hard break with saving text
+                                            var savedText = textEditor.getFormattedText(cursorPosition, textEditor.length);
+                                            BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, cursorPosition));
+                                            BlockModel.insertNewBlock(delegate.index, savedText);
                                             checkIfToScrollDown();
                                         }
                                     }
-                                } else {
-                                    if (delegate.blockType === BlockInfo.Quote) {
-                                        // imitate soft break
-                                        textEditor.insert(cursorPosition, "<br />"); // It proved too difficult to do this simple thing in the C++ model due to inconssitencies between the qml and c++ formatting of html/markdown
-                                        BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length));
-                                        checkIfToScrollDown();
-                                    } else {
-                                        // hard break with saving text
-                                        var savedText = textEditor.getFormattedText(cursorPosition, textEditor.length);
-                                        BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, cursorPosition));
-                                        BlockModel.insertNewBlock(delegate.index, savedText);
-                                        checkIfToScrollDown();
-                                    }
                                 }
-                            }
-                        } else if (root.selectedBlockIndexes.length > 1) {
-                            if (isHoldingShift) {
-                                editingMultipleBlocks(-1);
-                                textEditor.insert(cursorPosition, "<br />");
-                                BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length));
-                            } else {
-                                editingMultipleBlocks(-1);
-                                BlockModel.insertNewBlock(delegate.index, "");
-                                checkIfToScrollDown();
+                            } else if (root.selectedBlockIndexes.length > 1) {
+                                if (isHoldingShift) {
+                                    editingMultipleBlocks(-1);
+                                    textEditor.insert(cursorPosition, "<br />");
+                                    BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length));
+                                } else {
+                                    editingMultipleBlocks(-1);
+                                    BlockModel.insertNewBlock(delegate.index, "");
+                                    checkIfToScrollDown();
+                                }
                             }
                         }
                     }
