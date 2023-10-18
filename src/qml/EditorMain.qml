@@ -817,7 +817,7 @@ Rectangle {
                     signal cursorShowed
                     cursorDelegate: Rectangle {
                         id: cursorDelegateObject
-                        visible: true
+                        visible: root.selectedBlockIndexes.length <= 1 && textEditor.selectedText.length === 0
                         color: root.accentColor // Qt.rgba(Math.random(), Math.random(), Math.random(), 1) //"transparent" //root.accentColor
                         width: delegate.blockType === BlockInfo.Heading ? 3 : 2
 
@@ -825,7 +825,7 @@ Rectangle {
                             target: textEditor
 
                             function onAnyKeyPressed () {
-                                cursorDelegateObject.visible = true;
+                                cursorDelegateObject.visible = Qt.binding(function () { return root.selectedBlockIndexes.length <= 1 && textEditor.selectedText.length === 0 }); // true;
                             }
 
                             function onCursorHidden () {
@@ -833,13 +833,13 @@ Rectangle {
                             }
 
                             function onCursorShowed () {
-                                cursorDelegateObject.visible = true;
+                                cursorDelegateObject.visible = Qt.binding(function () { return root.selectedBlockIndexes.length <= 1 && textEditor.selectedText.length === 0 }); // true;
                             }
                         }
 
                         SequentialAnimation {
                             loops: Animation.Infinite
-                            running: !delegate.isPooled && textEditor.cursorAnimationRunning
+                            running: !delegate.isPooled && textEditor.cursorAnimationRunning && root.selectedBlockIndexes.length <= 1 && textEditor.selectedText.length === 0
 
                             PropertyAction {
                                 target: cursorDelegateObject
