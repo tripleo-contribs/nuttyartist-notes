@@ -1197,8 +1197,8 @@ Rectangle {
                                         BlockModel.backSpaceAtStartOfBlockTextPressed(delegate.index);
                                     } else {
                                         // cursor is at end of text and the text is not empty
-                                        if (delegate.blockType === BlockInfo.Quote) {
-                                            // If a quote block
+                                        if (delegate.blockType === BlockInfo.Quote || delegate.blockType === BlockInfo.DropCap) {
+                                            // If a quote block or a drop cap
                                             if (textEditor.getText(cursorPosition - 1, cursorPosition) === "\u2028") { // Unicode line separator
                                                 // There's a line break at the last line without text
                                                 root.lastCursorRect = textEditor.cursorRectangle;

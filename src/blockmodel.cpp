@@ -563,7 +563,8 @@ void BlockModel::insertNewBlock(int blockIndex, QString qmlHtml)
 
     // If the previous block is a divider or a quote and an enter is pressed, we simply create a regular empty block
     if (previousBlockInfo->blockType() == BlockInfo::BlockType::Divider ||
-        previousBlockInfo->blockType() == BlockInfo::BlockType::Quote) {
+        previousBlockInfo->blockType() == BlockInfo::BlockType::Quote ||
+        previousBlockInfo->blockType() == BlockInfo::BlockType::DropCap) {
         newBlockInfo->setBlockDelimiter("");
         newBlockInfo->setBlockType(BlockInfo::BlockType::RegularText);
         newBlockInfo->setTextPlainText("");
