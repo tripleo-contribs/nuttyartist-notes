@@ -181,7 +181,7 @@ Rectangle {
     }
 
     onLastCursorPosChanged: {
-        console.log("lastCursorPos: ", root.lastCursorPos);
+//        console.log("lastCursorPos: ", root.lastCursorPos);
     }
 
     function positionViewAtBottomAndSelectLastBlock () {
@@ -513,6 +513,7 @@ Rectangle {
 
             ListView.onReused: {
                 delegate.isPooled = false;
+                textEditor.updateSelection();
                 if (root.selectedBlockIndexes.length === 1 && root.selectedBlockIndexes[0] === delegate.index) {
                     console.log("on Completed 2");
                     console.log(root.lastCursorPos);
@@ -892,7 +893,7 @@ Rectangle {
 
                         if (!delegate.isPooled && !root.isProgrammaticChange) {
                             root.lastCursorPos = cursorPosition;
-                            console.log("lastCursorPos CHANGED 5:", root.lastCursorPos);
+//                            console.log("lastCursorPos CHANGED 5:", root.lastCursorPos);
                         }
                     }
 
@@ -1441,9 +1442,9 @@ Rectangle {
             const pos = blockDelegateText.positionAt(relItemX, y - relItemY);
             blockDelegateText.forceActiveFocus();
             blockDelegateText.cursorPosition = pos;
-            console.log("cursorPosition 6");
+//            console.log("cursorPosition 6");
             root.lastCursorPos = pos;
-            console.log("lastCursorPos CHANGED 13:", root.lastCursorPos);
+//            console.log("lastCursorPos CHANGED 13:", root.lastCursorPos);
             return [index, pos];
         }
 
