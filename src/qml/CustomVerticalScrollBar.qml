@@ -8,6 +8,7 @@ ScrollBar {
     x: parent.mirrored ? 0 : parent.width - width
 //    y: parent.topPadding
     height: parent.availableHeight
+    minimumSize: 0.08
     property var themeData: {{theme: "Light"}}
     property bool isDarkGray: true // Deterimnes wether the scrollbar color in Dark mode should be grayish or darkish
     property bool showBackground: false

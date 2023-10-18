@@ -61,7 +61,6 @@ signals:
     void aboutToLoadText();
     void loadTextFinished();
     void newBlockCreated(int blockIndex);
-    void blockToFocusOnChanged(int blockIndex); // TODO: Do we need this?
 
 private:
     QTextDocument m_sourceDocument;
