@@ -1232,7 +1232,7 @@ Rectangle {
                                             }
                                         }
                                     } else {
-                                        if (delegate.blockType === BlockInfo.Quote) {
+                                        if (delegate.blockType === BlockInfo.Quote || delegate.blockType === BlockInfo.DropCap) {
                                             // imitate soft break
                                             textEditor.insert(cursorPosition, "<br />"); // It proved too difficult to do this simple thing in the C++ model due to inconssitencies between the qml and c++ formatting of html/markdown
                                             BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length));
