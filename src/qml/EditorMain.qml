@@ -239,8 +239,10 @@ Rectangle {
 //        height: root.selectedBlock ? root.selectedBlock.textEditorPointer.cursorRectangle.height : 0 //selectedBlockCursorRect.height : 0
 ////        x: root.selectedBlock && root.selectedBlock.textEditorPointer.x > -200 && root.selectedBlock.delimiterAndTextRowPointer.x >= -200 ? root.mapFromItem(root.selectedBlock.textEditorPointer, selectedBlockCursorRect.x, selectedBlockCursorRect.y).x : 0
 ////        y: root.selectedBlock && root.selectedBlock.y >= 0 && root.selectedBlock.textEditorPointer.y > -200 && blockEditorView.contentY > -200 ? root.mapFromItem(root.selectedBlock.textEditorPointer, selectedBlockCursorRect.x, selectedBlockCursorRect.y).y : 0
-//        x: root.mapFromItem(root.selectedBlock.textEditorPointer, selectedBlockCursorRect.x, selectedBlockCursorRect.y).x
-//        y: root.mapFromItem(root.selectedBlock.textEditorPointer, selectedBlockCursorRect.x, selectedBlockCursorRect.y).y
+////        x: root.mapFromItem(root.selectedBlock.textEditorPointer, selectedBlockCursorRect.x, selectedBlockCursorRect.y).x
+////        y: root.mapFromItem(root.selectedBlock.textEditorPointer, selectedBlockCursorRect.x, selectedBlockCursorRect.y).y
+////        x: root.mapFromItem(root.selectedBlock.cursorDelegatePointer, root.selectedBlock.cursorDelegatePointer.x, root.selectedBlock.cursorDelegatePointer.y).x
+////        y: root.mapFromItem(root.selectedBlock.cursorDelegatePointer, root.selectedBlock.cursorDelegatePointer.x, root.selectedBlock.cursorDelegatePointer.y).y
 //        property bool enabledPressAnimation: false
 
 //        Behavior on x {
@@ -361,7 +363,7 @@ Rectangle {
 
             property alias textEditorPointer: textEditor
             property alias delimiterAndTextRowPointer: delimiterAndTextRow
-            property alias cursorDelegatePointer: textEditor.cursorDelegate
+//            property var cursorDelegatePointer//: cursorDelegateObject //textEditor.cursorDelegate
             property int lastBlockType: {lastBlockType = blockType}
             property int spaceBetweenDelimiterAndText: if(delegate.blockType === BlockInfo.Quote ||
                                                        delegate.blockType === BlockInfo.BulletListItem ||
@@ -506,6 +508,7 @@ Rectangle {
             ListView.onPooled: {
                 delegate.isPooled = true;
 //                if (root.selectedBlock === delegate)
+                textEditor.cursorAnimationRunning = false;
                 textEditor.cursorHidden();
 
 //                console.log("pooled: ", delegate.blockTextPlainText);
@@ -517,6 +520,7 @@ Rectangle {
                 if (root.selectedBlockIndexes.length === 1 && root.selectedBlockIndexes[0] === delegate.index) {
                     console.log("on Completed 2");
                     console.log(root.lastCursorPos);
+                    textEditor.cursorAnimationRunning = true;
                     textEditor.cursorShowed();
                     textEditor.cursorPosition = root.lastCursorPos;
                     console.log("cursorPosition 1");
@@ -818,15 +822,19 @@ Rectangle {
                     signal cursorShowed
                     cursorDelegate: Rectangle {
                         id: cursorDelegateObject
-                        visible: root.selectedBlockIndexes.length <= 1 && textEditor.selectedText.length === 0
-                        color: root.accentColor // Qt.rgba(Math.random(), Math.random(), Math.random(), 1) //"transparent" //root.accentColor
+                        visible: !delegate.isPooled && root.selectedBlockIndexes.length <= 1 && textEditor.selectedText.length === 0
+                        color: Qt.rgba(Math.random(), Math.random(), Math.random(), 1) //"transparent" //root.accentColor
                         width: delegate.blockType === BlockInfo.Heading ? 3 : 2
+
+//                        Component.onCompleted: {
+//                            delegate.cursorDelegatePointer = cursorDelegateObject;
+//                        }
 
                         Connections {
                             target: textEditor
 
                             function onAnyKeyPressed () {
-                                cursorDelegateObject.visible = Qt.binding(function () { return root.selectedBlockIndexes.length <= 1 && textEditor.selectedText.length === 0 }); // true;
+                                cursorDelegateObject.visible = Qt.binding(function () { return !delegate.isPooled && root.selectedBlockIndexes.length <= 1 && textEditor.selectedText.length === 0 }); // true;
                             }
 
                             function onCursorHidden () {
@@ -834,7 +842,7 @@ Rectangle {
                             }
 
                             function onCursorShowed () {
-                                cursorDelegateObject.visible = Qt.binding(function () { return root.selectedBlockIndexes.length <= 1 && textEditor.selectedText.length === 0 }); // true;
+                                cursorDelegateObject.visible = Qt.binding(function () { return !delegate.isPooled && root.selectedBlockIndexes.length <= 1 && textEditor.selectedText.length === 0 }); // true;
                             }
                         }
 
