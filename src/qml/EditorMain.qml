@@ -146,12 +146,6 @@ Rectangle {
         function onNewBlockCreated(blockIndex : int) {
             root.blockIndexToFocusOn = blockIndex;
         }
-
-        function onCtrlReturnPressed() {
-            if (root.selectedBlock && root.selectedBlock.blockType === BlockInfo.Todo) {
-                BlockModel.toggleTaskAtIndex(root.selectedBlock.index);
-            }
-        }
     }
 
     function blockToFocusOn(blockIndex : int) {
