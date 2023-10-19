@@ -823,7 +823,7 @@ Rectangle {
                     cursorDelegate: Rectangle {
                         id: cursorDelegateObject
                         visible: !delegate.isPooled && root.selectedBlockIndexes.length <= 1 && textEditor.selectedText.length === 0
-                        color: Qt.rgba(Math.random(), Math.random(), Math.random(), 1) //"transparent" //root.accentColor
+                        color: root.accentColor //Qt.rgba(Math.random(), Math.random(), Math.random(), 1) //"transparent" //root.accentColor
                         width: delegate.blockType === BlockInfo.Heading ? 3 : 2
 
 //                        Component.onCompleted: {
