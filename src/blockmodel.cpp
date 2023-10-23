@@ -8,7 +8,9 @@ BlockModel::BlockModel(QObject *parent)
       m_htmlMetaDataEnd(QStringLiteral("</body></html>")),
       m_tabLengthInSpaces(4),
       m_textLineHeightInPercentage(125),
-      m_blockIndexToFocusOn(0)
+      m_blockIndexToFocusOn(0),
+      m_undoStack({}),
+      m_redoStack({})
 {
     Q_UNUSED(parent);
 }
@@ -186,7 +188,7 @@ void BlockModel::updateBlockUsingPlainText(BlockInfo* blockInfo, unsigned int bl
     blockInfo->setIndentLevel(0);
     blockInfo->setParent(nullptr);
     if (lineTotalIndentLength > 0 && m_blockList.length() > 0) {
-        determineBlockIndentAndParentChildRelationship(blockInfo, m_blockList.length() - 1);
+        determineBlockIndentAndParentChildRelationship(blockInfo, blockIndex - 1);
     }
 }
 
@@ -221,6 +223,8 @@ void BlockModel::loadText(const QString& text)
 
 void BlockModel::clear()
 {
+    m_undoStack.clear();
+    m_redoStack.clear();
     beginResetModel();
     qDeleteAll(m_blockList); // TODO: this is extremly slow 2-4x slower than loading. How to optimize this?
     m_blockList.clear();
@@ -253,7 +257,7 @@ QString BlockModel::QmlHtmlToMarkdown(QString &qmlHtml)
     return markdown;
 }
 
-void BlockModel::setTextAtIndex(const int blockIndex, QString qmlHtml)
+void BlockModel::setTextAtIndex(const int blockIndex, QString qmlHtml, int cursorPositionQML)
 {
     emit aboutToChangeText();
 
@@ -272,13 +276,35 @@ void BlockModel::setTextAtIndex(const int blockIndex, QString qmlHtml)
         emit textChangeFinished();
         return;
     }
-
 //    qDebug() << "Changing!";
-
 //    qDebug() << "markdown 3: " << markdown;
 
+    int indentAndDelimiterLength = blockInfo->indentedString().length() + blockInfo->blockDelimiter().length();
+    int cursorPosition = cursorPositionQML + indentAndDelimiterLength;
+    if (abs(blockInfo->textPlainText().length() - markdown.length()) == 1) {
+        // one char operation
+        OneCharOperation oneCharOperation = blockInfo->textPlainText().length() > markdown.length() ?
+                oneCharOperation = OneCharOperation::CharDelete :
+                oneCharOperation = OneCharOperation::CharInsert;
+        updateSourceTextBetweenLines(blockInfo->lineStartPos(),
+                         blockInfo->lineEndPos(),
+                         markdown,
+                         true,
+                         cursorPosition,
+                         SingleAction::ActionType::Modify,
+                         oneCharOperation);
+    } else {
+        // not one char operation
+        updateSourceTextBetweenLines(blockInfo->lineStartPos(),
+                                     blockInfo->lineEndPos(),
+                                     markdown,
+                                     true,
+                                     cursorPosition,
+                                     SingleAction::ActionType::Modify,
+                                     OneCharOperation::NoOneCharOperation);
+    }
+
     blockInfo->determineBlockType(markdown);
-    updateSourceTextBetweenLines(blockInfo->lineStartPos(), blockInfo->lineEndPos(), markdown);
     int numberOfLinesBefore = blockInfo->lineEndPos() - blockInfo->lineStartPos() + 1;
     int numberOfLinesDelta =  markdown.count('\n') + 1 - numberOfLinesBefore;
     updateBlockText(blockInfo,
@@ -295,20 +321,122 @@ void BlockModel::setTextAtIndex(const int blockIndex, QString qmlHtml)
 }
 
 // TODO: This function slows the app down (writing lag) when the text is very large (e.g. Moby Dick)
-void BlockModel::updateSourceTextBetweenLines(unsigned int startLinePos, unsigned int endLinePos, const QString &newText)
+// And we don't really need to rely on QTextDocument for that
+void BlockModel::updateSourceTextBetweenLines(int startLinePos,
+                                              int endLinePos,
+                                              const QString &newText,
+                                              bool shouldCreateUndo,
+                                              int cursorPosition,
+                                              SingleAction::ActionType actionType,
+                                              OneCharOperation oneCharoperation,
+                                              bool isForceMergeLastAction)
 {
 //    qDebug() << "startLinePos: " << startLinePos;
 //    qDebug() << "endLinePos: " << endLinePos;
 //    qDebug() << "sourceDocument before: " << m_sourceDocument.toPlainText();
 
+    SingleAction singleAction;
+    bool isMergingLastAction = isForceMergeLastAction ? true : false;
+
+    if (shouldCreateUndo) {
+        m_redoStack.clear(); // Clear redo stack after edit
+        singleAction.actionType = actionType;
+        singleAction.blockStartIndex = startLinePos;
+        singleAction.blockEndIndex = endLinePos;
+        singleAction.newPlainText = newText;
+        singleAction.oneCharOperation = oneCharoperation;
+        singleAction.lastCursorPosition = cursorPosition;
+
+        if (actionType == SingleAction::ActionType::Modify) {
+            // Modifying only one block
+            qDebug() << "In modify";
+            if (!m_undoStack.isEmpty()) {
+                SingleAction &lastAction = m_undoStack.last().actions.last();
+                if (oneCharoperation == OneCharOperation::CharInsert || oneCharoperation == OneCharOperation::CharDelete) {
+                    if (lastAction.oneCharOperation == oneCharoperation &&
+                        lastAction.blockStartIndex == startLinePos &&
+                        lastAction.blockEndIndex == endLinePos &&
+                        abs(lastAction.lastCursorPosition - cursorPosition) == 1) {
+
+                        qDebug() << "Merging last char action";
+                        isMergingLastAction = true;
+                        lastAction.lastCursorPosition = cursorPosition;
+                        lastAction.newPlainText = newText;
+                    }
+                }
+            }
+        }
+    }
+
     QTextBlock startBlock = m_sourceDocument.findBlockByLineNumber(startLinePos);
     QTextBlock endBlock = m_sourceDocument.findBlockByLineNumber(endLinePos);
     QTextCursor cursor(startBlock);
     cursor.setPosition(endBlock.position() + endBlock.length() - 1, QTextCursor::KeepAnchor);
-    cursor.removeSelectedText();
-    cursor.insertText(newText);
+    singleAction.oldPlainText = cursor.selectedText().replace("\u2029", "\n"); // In selectedText(), line breaks '\n' are replaced with Unicode U+2029. See: https://doc.qt.io/qt-6/qtextcursor.html#selectedText
+
+    if (actionType == SingleAction::ActionType::Modify) {
+        cursor.removeSelectedText();
+        cursor.insertText(newText);
+    } else if (actionType == SingleAction::ActionType::Remove) {
+        qDebug() << "remove startLinePos: " << startLinePos;
+        int positionToRemoveFrom = startBlock.position() - (startBlock.position() > 0 && startLinePos > 0 ? 1 : 0); // we want to remove the newline character at the start as well, if exist
+        cursor.setPosition(positionToRemoveFrom, QTextCursor::MoveAnchor);
+        cursor.setPosition(endBlock.position() + endBlock.length() - 1, QTextCursor::KeepAnchor);
+        cursor.removeSelectedText();
+//        cursor.insertText(newText);
+    } else if (actionType == SingleAction::ActionType::Insert) {
+        if (startLinePos > m_sourceDocument.blockCount() - 1) {
+            cursor.setPosition(m_sourceDocument.characterCount() - 1, QTextCursor::MoveAnchor);
+        } else {
+            cursor.setPosition(startBlock.position(), QTextCursor::MoveAnchor);
+        }
+        if (startLinePos > m_sourceDocument.lineCount() - 1) {
+            // If we're inserting at the end of the document
+            qDebug() << "inserting newline";
+            cursor.insertText("\n" + newText);
+        } else {
+            // If we're inserting at the middle of the document
+            qDebug() << "not inserting newline";
+            cursor.insertText(newText + "\n");
+        }
+    }
+
+    if (isForceMergeLastAction && !m_undoStack.isEmpty()) {
+        m_undoStack.last().actions.push_back(singleAction);
+    }
+
+    if (!isMergingLastAction && shouldCreateUndo) {
+        qDebug() << "new CompoundAction";
+        CompoundAction compoundAction;
+        compoundAction.actions.push_back(singleAction);
+        m_undoStack.push_back(compoundAction);
+        qDebug() << "m_undoStack in KB: " << estimateMemoryUsageInKB(m_undoStack);
+    }
 
 //    qDebug() << "sourceDocument after: " << m_sourceDocument.toPlainText();
+}
+
+double BlockModel::estimateMemoryUsageInKB(const QList<CompoundAction> &undoStack) {
+    int totalSize = 0;
+    // Size of QList overhead
+    totalSize += sizeof(QList<CompoundAction>);
+    for (const CompoundAction &compoundAction : undoStack) {
+        // Size of QList<SingleAction> overhead
+        totalSize += sizeof(QList<SingleAction>);
+        for (const SingleAction &action : compoundAction.actions) {
+            // Size of two unsigned int and one enum (assuming it's sizeof(int))
+            totalSize += 2 * sizeof(unsigned int) + sizeof(int);
+            // Size of QString overhead and its content
+            totalSize += 2 * sizeof(QString) + action.oldPlainText.size() * sizeof(QChar) + action.newPlainText.size() * sizeof(QChar);
+            // Size of OneCharOperation
+            totalSize += sizeof(OneCharOperation);
+            // Size of int
+            totalSize += sizeof(int);
+        }
+    }
+
+    // Convert totalSize (in bytes) to kilobytes
+    return static_cast<double>(totalSize) / 1024.0;
 }
 
 void BlockModel::indentBlocks(QList<int> selectedBlockIndexes)
@@ -317,6 +445,7 @@ void BlockModel::indentBlocks(QList<int> selectedBlockIndexes)
 
     if (selectedBlockIndexes.length() > 0) {
         // Running on the selected blocks to check for indentation
+        int numberOfAlreadyIndentedBlocks = 0;
         for (int i = selectedBlockIndexes[0]; i < selectedBlockIndexes[selectedBlockIndexes.length()-1] + 1; i++) {
             BlockInfo *blockInfo = m_blockList[i];
             if(blockInfo->isIndentable() && i > 0) {
@@ -344,7 +473,13 @@ void BlockModel::indentBlocks(QList<int> selectedBlockIndexes)
 
                         updateSourceTextBetweenLines(blockInfo->lineStartPos(),
                                                      blockInfo->lineEndPos(),
-                                                     newIndentedPlainText);
+                                                     newIndentedPlainText,
+                                                     true,
+                                                     0,
+                                                     SingleAction::ActionType::Modify,
+                                                     OneCharOperation::Indent,
+                                                     numberOfAlreadyIndentedBlocks <= 0 ? false : true);
+                        numberOfAlreadyIndentedBlocks++; // We want only the first indented block to create an undo compund action, the rest will be merged with it
 
                         updateBlockText(blockInfo,
                                         newIndentedPlainText,
@@ -375,14 +510,14 @@ void BlockModel::indentBlocks(QList<int> selectedBlockIndexes)
     }
 }
 
-void BlockModel::unindentBlock(unsigned int blockIndex, BlockInfo * blockInfo, bool isSecondRun)
+void BlockModel::unindentBlock(unsigned int blockIndex, BlockInfo * blockInfo, bool isSecondRun, int numberOfAlreadyUnindentedBlocks)
 {
     qDebug() << "unindentBlock!";
     emit aboutToChangeText();
     QString plainTextWithoutIndentation = blockInfo->textPlainText().mid(blockInfo->indentedString().length());
-    qDebug() << "is parent null: " << (blockInfo->parent() == nullptr);
-    qDebug() << "parent text: " << blockInfo->parent()->textPlainText();
-    qDebug() << "parent indentedString: " << blockInfo->parent()->indentedString();
+//    qDebug() << "is parent null: " << (blockInfo->parent() == nullptr);
+//    qDebug() << "parent text: " << blockInfo->parent()->textPlainText();
+//    qDebug() << "parent indentedString: " << blockInfo->parent()->indentedString();
     QString newPlainText = blockInfo->parent()->indentedString() + (isSecondRun ? "\t" : "") + plainTextWithoutIndentation;
 
     blockInfo->setIndentedString(blockInfo->parent()->indentedString() + (isSecondRun ? "\t" : ""));
@@ -393,7 +528,12 @@ void BlockModel::unindentBlock(unsigned int blockIndex, BlockInfo * blockInfo, b
 
     updateSourceTextBetweenLines(blockInfo->lineStartPos(),
                                  blockInfo->lineEndPos(),
-                                 newPlainText);
+                                 newPlainText,
+                                 true,
+                                 0,
+                                 SingleAction::ActionType::Modify,
+                                 OneCharOperation::Unindent,
+                                 numberOfAlreadyUnindentedBlocks <= 0 ? false : true);
 
     updateBlockText(blockInfo,
                     newPlainText,
@@ -421,7 +561,7 @@ void BlockModel::unindentBlocks(QList<int> selectedBlockIndexes)
                 unsigned int originalBlockIndentLevel = blockInfo->indentLevel();
                 if (blockInfo->indentLevel() > 0 && blockInfo->parent() != nullptr && !unindentedAlready.contains(blockInfo)) {
                     qDebug() << "2";
-                    unindentBlock(i, blockInfo, false);
+                    unindentBlock(i, blockInfo, false, unindentedAlready.length());
                     unindentedAlready.push_back(blockInfo);
                     int j = i + 1;
                     while (j < m_blockList.length()) {
@@ -439,7 +579,7 @@ void BlockModel::unindentBlocks(QList<int> selectedBlockIndexes)
                             nextBlock->indentLevel() > originalBlockIndentLevel &&
                             !unindentedAlready.contains(nextBlock)) {
                             qDebug() << "4.5";
-                            unindentBlock(j, nextBlock, true);
+                            unindentBlock(j, nextBlock, true, unindentedAlready.length());
                             unindentedAlready.push_back(nextBlock);
                         }
 
@@ -453,17 +593,16 @@ void BlockModel::unindentBlocks(QList<int> selectedBlockIndexes)
     }
 }
 
-void BlockModel::moveBlockTextToPreviousBlock(int blockIndex)
+void BlockModel::moveBlockTextToBlockAbove(int blockIndex)
 {
     if (blockIndex > 0) {
         BlockInfo *blockInfo = m_blockList[blockIndex];
         BlockInfo *previousBlock = m_blockList[blockIndex - 1];
 
         emit aboutToChangeText();
-        beginRemoveRows(QModelIndex(), blockIndex, blockIndex);
 
         updateSourceTextBetweenLines(previousBlock->lineStartPos(),
-                                     blockInfo->lineEndPos(),
+                                     previousBlock->lineEndPos(),
                                      previousBlock->textPlainText() + blockInfo->textPlainText());
 
         updateBlockText(previousBlock,
@@ -480,7 +619,7 @@ void BlockModel::moveBlockTextToPreviousBlock(int blockIndex)
     }
 }
 
-void BlockModel::backSpaceAtStartOfBlockTextPressed(int blockIndex)
+void BlockModel::backSpacePressedAtStartOfBlock(int blockIndex)
 {
     BlockInfo *blockInfo = m_blockList[blockIndex];
 
@@ -493,9 +632,18 @@ void BlockModel::backSpaceAtStartOfBlockTextPressed(int blockIndex)
         QString newBlockPlainText = afterIndentRemoval.mid(blockInfo->blockDelimiter().length());
         newBlockPlainText = blockInfo->indentedString() + newBlockPlainText;
 
+//        updateSourceTextBetweenLines(blockInfo->lineStartPos(),
+//                                     blockInfo->lineEndPos(),
+//                                     newBlockPlainText);
+
         updateSourceTextBetweenLines(blockInfo->lineStartPos(),
                                      blockInfo->lineEndPos(),
-                                     newBlockPlainText);
+                                     newBlockPlainText,
+                                     true,
+                                     0,
+                                     SingleAction::ActionType::Modify,
+                                     OneCharOperation::NoOneCharOperation,
+                                     false);
 
         blockInfo->determineBlockType(newBlockPlainText);
 
@@ -507,31 +655,33 @@ void BlockModel::backSpaceAtStartOfBlockTextPressed(int blockIndex)
         QModelIndex modelIdx = this->index(blockIndex);
         emit dataChanged(modelIdx, modelIdx, {});
         emit textChangeFinished();
-    } else {
-        if (blockInfo->indentLevel() > 0) {
-            // if this block is a regularText but indented -> we unindent it
-            unindentBlocks({blockIndex});
-        } else if (blockIndex > 0){
-            // if this block is a regularText and not indented -> we remove it and put its text in the previous block
-            beginRemoveRows(QModelIndex(), blockIndex, blockIndex);
-
-            // We need to run on all the children and ask them to reavaluate their parent
-            for (auto &child : blockInfo->children()) {
-                qDebug() << "Child text: " << child->textPlainText();
-                determineBlockIndentAndParentChildRelationship(child, blockIndex - 1    );
-            }
-
-            // moveBlockTextToPreviousBlock is called by the view because we want to call it before the animation
-
-            m_blockList.removeAt(blockIndex);
-            blockInfo->deleteLater();
-
-            endRemoveRows();
+    } else if (blockInfo->indentLevel() > 0) {
+        // if this block is a regularText but indented -> we unindent it
+        unindentBlocks({blockIndex});
+    } else if (blockIndex > 0) {
+        // if this block is a regularText and not indented -> we remove it
+        emit aboutToChangeText();
+        updateSourceTextBetweenLines(blockInfo->lineStartPos(),
+                                     blockInfo->lineEndPos(),
+                                     "",
+                                     true,
+                                     0,
+                                     SingleAction::ActionType::Remove,
+                                     OneCharOperation::NoOneCharOperation,
+                                     true);
+        emit textChangeFinished();
+        beginRemoveRows(QModelIndex(), blockIndex, blockIndex);
+        // We need to run on all the children and ask them to reavaluate their parent
+        for (auto &child : blockInfo->children()) {
+            determineBlockIndentAndParentChildRelationship(child, blockIndex - 1    );
         }
+        m_blockList.removeAt(blockIndex);
+        blockInfo->deleteLater();
+        endRemoveRows();
     }
 }
 
-void BlockModel::insertNewBlock(int blockIndex, QString qmlHtml)
+void BlockModel::insertNewBlock(int blockIndex, QString qmlHtml, bool shouldMergeWithPreviousAction)
 {
     emit aboutToChangeText();
     beginInsertRows(QModelIndex(), blockIndex + 1, blockIndex + 1);
@@ -578,9 +728,14 @@ void BlockModel::insertNewBlock(int blockIndex, QString qmlHtml)
     if (newBlockInfo->totalIndentLength() > 0)
         markdown = newBlockInfo->indentedString() + markdown;
 
-    updateSourceTextBetweenLines(previousBlockInfo->lineStartPos(),
-                                 previousBlockInfo->lineEndPos(),
-                                 previousBlockInfo->textPlainText() + "\n" + markdown);
+    updateSourceTextBetweenLines(previousBlockInfo->lineStartPos() + 1,
+                                 0,
+                                 markdown,
+                                 true,
+                                 0,
+                                 SingleAction::ActionType::Insert,
+                                 OneCharOperation::NoOneCharOperation,
+                                 shouldMergeWithPreviousAction);
 
     updateBlockText(newBlockInfo,
                     markdown,
@@ -645,7 +800,14 @@ void BlockModel::toggleTaskAtIndex(int blockIndex)
                     blockInfo->lineStartPos(),
                     blockInfo->lineEndPos());
 
-    updateSourceTextBetweenLines(blockInfo->lineStartPos(), blockInfo->lineEndPos(), plainText);
+    updateSourceTextBetweenLines(blockInfo->lineStartPos(),
+                                 blockInfo->lineEndPos(),
+                                 plainText,
+                                 true,
+                                 0,
+                                 SingleAction::ActionType::Modify,
+                                 OneCharOperation::NoOneCharOperation,
+                                 false);
 
     QModelIndex modelIdx = this->index(blockIndex);
     emit dataChanged(modelIdx, modelIdx, {});
@@ -660,17 +822,6 @@ void BlockModel::editBlocks(QList<int> selectedBlockIndexes, int firstBlockSelec
     emit aboutToChangeText();
     std::sort(selectedBlockIndexes.begin(), selectedBlockIndexes.end());
 
-//    BlockInfo *firstBlock = m_blockList[selectedBlockIndexes[0]];
-//    qDebug() << "savedTextLastBlockQmlHtml 1: " << savedTextLastBlockQmlHtml;
-//    qDebug () << "savedTextFirstBlockQmlHtml 1: " << savedTextFirstBlockQmlHtml;
-//    savedTextLastBlockQmlHtml = savedTextLastBlockQmlHtml.isEmpty() ? QStringLiteral("") : QmlHtmlToMarkdown(savedTextLastBlockQmlHtml);
-//    savedTextFirstBlockQmlHtml = savedTextFirstBlockQmlHtml.isEmpty() ? QStringLiteral("") : QmlHtmlToMarkdown(savedTextFirstBlockQmlHtml);
-//    qDebug() << "savedTextLastBlockQmlHtml 2: " << savedTextLastBlockQmlHtml;
-//    qDebug () << "savedTextFirstBlockQmlHtml 2: " << savedTextFirstBlockQmlHtml;
-//    qDebug() << "savedPressedChar 1: " << savedPressedChar;
-//    qDebug() << "savedPressedChar 2: " << QKeySequence(savedPressedChar).toString();
-//    qDebug() << "firstBlock->textPlainText: " << firstBlock->textPlainText();
-
     qDebug() << "firstBlockSelectionStart: " << firstBlockSelectionStart;
     qDebug() << "lastBlockSelectionEnd: " << lastBlockSelectionEnd;
 
@@ -679,7 +830,7 @@ void BlockModel::editBlocks(QList<int> selectedBlockIndexes, int firstBlockSelec
     BlockInfo *lastBlock = m_blockList[lastBlockIndex];
     QString savedTextFirstBlock = firstBlock->textPlainText().mid(firstBlock->indentedString().length() + firstBlock->blockDelimiter().length());
     qDebug() << "savedTextFirstBlock 1: " << savedTextFirstBlock;
-    savedTextFirstBlock = savedTextFirstBlock.mid(0, firstBlockSelectionStart);
+    savedTextFirstBlock = firstBlock->indentedString() + firstBlock->blockDelimiter() + savedTextFirstBlock.mid(0, firstBlockSelectionStart);
     qDebug() << "savedTextFirstBlock 2: " << savedTextFirstBlock;
     qDebug() << "lastBlock->textPlainText: " << lastBlock->textPlainText();
     int lineBreaksLength = lastBlock->textPlainText().count("<br />") * QStringLiteral("<br />").length();
@@ -689,17 +840,33 @@ void BlockModel::editBlocks(QList<int> selectedBlockIndexes, int firstBlockSelec
     QString savedPressedCharString = QKeySequence(savedPressedChar).toString();
     savedPressedCharString = isPressedCharLower ? savedPressedCharString.toLower() : savedPressedCharString;
 
-    QString newPlainText = firstBlock->indentedString() + firstBlock->blockDelimiter() + savedTextFirstBlock + savedPressedCharString + savedTextLastBlock;
+    QString newFirstBlockPlainText = savedTextFirstBlock + savedPressedCharString + savedTextLastBlock;
 
-    qDebug() << "newPlainText: " << newPlainText;
+    qDebug() << "newFirstBlockPlainText: " << newFirstBlockPlainText;
     updateBlockText(firstBlock,
-                    newPlainText,
+                    newFirstBlockPlainText,
                     firstBlock->lineStartPos(),
                     firstBlock->lineEndPos());
     QModelIndex firstBlockIndex = this->index(selectedBlockIndexes[0]);
     emit dataChanged(firstBlockIndex, firstBlockIndex, {});
 
-    updateSourceTextBetweenLines(firstBlock->lineStartPos(), lastBlock->lineEndPos(), newPlainText);
+    updateSourceTextBetweenLines(selectedBlockIndexes[1],
+                                 selectedBlockIndexes[selectedBlockIndexes.length()-1],
+                                 "",
+                                 true,
+                                 0,
+                                 SingleAction::ActionType::Remove,
+                                 OneCharOperation::NoOneCharOperation,
+                                 false);
+
+    updateSourceTextBetweenLines(firstBlock->lineStartPos(),
+                                 firstBlock->lineEndPos(),
+                                 newFirstBlockPlainText,
+                                 true,
+                                 0,
+                                 SingleAction::ActionType::Modify,
+                                 OneCharOperation::NoOneCharOperation,
+                                 true);
 
     // Find the lowest indent level in selected blocks
     QList<int> allIndentLevels = {};
@@ -740,4 +907,141 @@ void BlockModel::editBlocks(QList<int> selectedBlockIndexes, int firstBlockSelec
     updateBlocksLinePositions(selectedBlockIndexes[1], -(selectedBlockIndexes.length()-1));
 
     emit textChangeFinished();
+}
+
+void BlockModel::undo()
+{
+    if (!m_undoStack.isEmpty()) {
+        emit aboutToChangeText();
+        qDebug() << "m_undoStack.length: " << m_undoStack.length();
+        CompoundAction &lastCompoundAction = m_undoStack.last();
+        m_redoStack.push_back(lastCompoundAction);
+
+        for (auto &singleAction : lastCompoundAction.actions) {
+            if (singleAction.actionType == SingleAction::ActionType::Modify) {
+                qDebug() << "In undo Modify";
+                unsigned int modifiedBlockIndex = singleAction.blockStartIndex;
+                BlockInfo *blockInfo = m_blockList[modifiedBlockIndex];
+                updateBlockUsingPlainText(blockInfo, blockInfo->lineStartPos(), singleAction.oldPlainText);
+                updateSourceTextBetweenLines(singleAction.blockStartIndex, singleAction.blockEndIndex, singleAction.oldPlainText, false);
+
+                // TODO: maybe wait for updating the model when all the single actions are done?
+                QModelIndex modelIdx = this->index(modifiedBlockIndex);
+                emit dataChanged(modelIdx, modelIdx, {});
+            } else if (singleAction.actionType == SingleAction::ActionType::Remove) {
+                qDebug() << "In undo Remove";
+                updateSourceTextBetweenLines(singleAction.blockStartIndex,
+                                             0,
+                                             singleAction.oldPlainText,
+                                             false,
+                                             0,
+                                             SingleAction::ActionType::Insert,
+                                             OneCharOperation::NoOneCharOperation,
+                                             false);
+                QStringList lines = singleAction.oldPlainText.split("\n");
+                beginInsertRows(QModelIndex(), singleAction.blockStartIndex, singleAction.blockEndIndex);
+                int index = 0;
+                for (auto &line: lines) {
+                    int blockIndex = singleAction.blockStartIndex + index;
+                    BlockInfo *blockInfo = new BlockInfo(this);
+                    updateBlockUsingPlainText(blockInfo, blockIndex, line);
+                    m_blockList.insert(blockIndex, blockInfo);
+                    index++;
+                }
+                endInsertRows();
+                updateBlocksLinePositions(singleAction.blockEndIndex + 1, 1);
+                emit blockToFocusOnChanged(singleAction.blockEndIndex);
+            } else if (singleAction.actionType == SingleAction::ActionType::Insert) {
+                qDebug() << "In undo Insert";
+                int blockIndex = singleAction.blockStartIndex;
+                BlockInfo *blockInfo = m_blockList[blockIndex];
+                beginRemoveRows(QModelIndex(), blockIndex, blockIndex);
+                updateSourceTextBetweenLines(blockInfo->lineStartPos(),
+                                             blockInfo->lineEndPos(),
+                                             "",
+                                             false,
+                                             0,
+                                             SingleAction::ActionType::Remove,
+                                             OneCharOperation::NoOneCharOperation,
+                                             false);
+                for (auto &child : blockInfo->children()) {
+                    determineBlockIndentAndParentChildRelationship(child, blockIndex - 1    );
+                }
+                m_blockList.removeAt(blockIndex);
+                blockInfo->deleteLater();
+                endRemoveRows();
+                updateBlocksLinePositions(blockIndex, -1);
+                emit blockToFocusOnChanged(blockIndex - 1);
+            }
+        }
+
+        m_undoStack.removeLast();
+        emit textChangeFinished();
+    }
+}
+
+void BlockModel::redo()
+{
+    if (!m_redoStack.isEmpty()) {
+        emit aboutToChangeText();
+        qDebug() << "m_redoStack.length: " << m_redoStack.length();
+        CompoundAction &lastCompoundAction = m_redoStack.last();
+        m_undoStack.push_back(lastCompoundAction);
+
+        for (auto &singleAction : lastCompoundAction.actions) {
+            if (singleAction.actionType == SingleAction::ActionType::Modify) {
+                qDebug() << "In redo Modify";
+                unsigned int modifiedBlockIndex = singleAction.blockStartIndex;
+                BlockInfo *blockInfo = m_blockList[modifiedBlockIndex];
+                updateBlockUsingPlainText(blockInfo, blockInfo->lineStartPos(), singleAction.newPlainText);
+                updateSourceTextBetweenLines(singleAction.blockStartIndex, singleAction.blockEndIndex, singleAction.newPlainText, false);
+
+                // TODO: maybe wait for updating the model when all the single actions are done?
+                QModelIndex modelIdx = this->index(modifiedBlockIndex);
+                emit dataChanged(modelIdx, modelIdx, {});
+            } else if (singleAction.actionType == SingleAction::ActionType::Remove) {
+                qDebug() << "In redo Remove";
+                updateSourceTextBetweenLines(singleAction.blockStartIndex,
+                                             singleAction.blockEndIndex,
+                                             "",
+                                             false,
+                                             0,
+                                             SingleAction::ActionType::Remove,
+                                             OneCharOperation::NoOneCharOperation,
+                                             false);
+                for (unsigned int blockIndex = singleAction.blockStartIndex; blockIndex <= singleAction.blockEndIndex; blockIndex++) {
+                    BlockInfo *blockInfo = m_blockList[blockIndex];
+                    for (auto &child : blockInfo->children()) {
+                        determineBlockIndentAndParentChildRelationship(child, blockIndex - 1);
+                    }
+                    blockInfo->deleteLater();
+                }
+                beginRemoveRows(QModelIndex(), singleAction.blockStartIndex, singleAction.blockEndIndex);
+                m_blockList.remove(singleAction.blockStartIndex, singleAction.blockEndIndex - singleAction.blockStartIndex + 1);
+                endRemoveRows();
+                emit blockToFocusOnChanged(singleAction.blockStartIndex - 1);
+                updateBlocksLinePositions(singleAction.blockStartIndex, -(singleAction.blockEndIndex - singleAction.blockStartIndex + 1));
+            } else if (singleAction.actionType == SingleAction::ActionType::Insert) {
+                qDebug() << "In redo Insert";
+                updateSourceTextBetweenLines(singleAction.blockStartIndex,
+                                             0,
+                                             singleAction.newPlainText,
+                                             false,
+                                             0,
+                                             SingleAction::ActionType::Insert,
+                                             OneCharOperation::NoOneCharOperation,
+                                             false);
+                beginInsertRows(QModelIndex(), singleAction.blockStartIndex, singleAction.blockStartIndex);
+                BlockInfo *blockInfo = new BlockInfo(this);
+                updateBlockUsingPlainText(blockInfo, singleAction.blockStartIndex, singleAction.newPlainText);
+                m_blockList.insert(singleAction.blockStartIndex, blockInfo);
+                endInsertRows();
+                emit blockToFocusOnChanged(singleAction.blockStartIndex);
+                updateBlocksLinePositions(singleAction.blockStartIndex + 1, 1);
+            }
+        }
+
+        m_redoStack.removeLast();
+        emit textChangeFinished();
+    }
 }

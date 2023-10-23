@@ -126,11 +126,11 @@ void NoteEditorLogic::showNotesInEditor(const QVector<NodeData> &notes)
         int scrollbarPos = notes[0].scrollBarPosition();
 
 //         set text and date
-        bool isTextChanged = content != m_textEdit->toPlainText();
-        if (isTextChanged) {
+//        bool isTextChanged = content != m_textEdit->toPlainText();
+//        if (isTextChanged) {
             m_textEdit->setText(content);
             m_blockModel->loadText(content);
-        }
+//        }
 //        m_blockModel->loadText(content);
 
         QString noteDate = dateTime.toString(Qt::ISODate);

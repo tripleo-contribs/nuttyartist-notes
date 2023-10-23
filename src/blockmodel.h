@@ -13,6 +13,33 @@
 
 #include "md4c-html.h"
 
+enum class OneCharOperation {
+    CharInsert,
+    CharDelete,
+    Indent,
+    Unindent,
+    NoOneCharOperation,
+};
+
+struct SingleAction {
+    unsigned int blockStartIndex;
+    unsigned int blockEndIndex;
+    enum ActionType {
+        Insert,
+        Remove,
+        Modify
+    };
+    ActionType actionType;
+    QString oldPlainText;
+    QString newPlainText;
+    OneCharOperation oneCharOperation;
+    int lastCursorPosition;
+};
+
+struct CompoundAction {
+    QList<SingleAction> actions;
+};
+
 class BlockModel : public QAbstractListModel
 {
     Q_OBJECT
@@ -41,20 +68,23 @@ public:
     QString markdownToHtml(const QString &markdown);
 
 public slots:
+    void undo();
+    void redo();
     void editBlocks(QList<int> selectedBlockIndexes, int firstBlockSelectionStart, int lastBlockSelectionEnd, int savedPressedChar, bool isPressedCharLower);
     void toggleTaskAtIndex(int blockIndex);
     BlockInfo::BlockType getBlockType(int blockIndex);
-    void insertNewBlock(int blockIndex, QString plainText);
-    void moveBlockTextToPreviousBlock(int blockIndex);
-    void backSpaceAtStartOfBlockTextPressed(int blockIndex);
+    void insertNewBlock(int blockIndex, QString plainText, bool shouldMergeWithPreviousAction=false);
+    void moveBlockTextToBlockAbove(int blockIndex);
+    void backSpacePressedAtStartOfBlock(int blockIndex);
     void indentBlocks(QList<int> selectedBlockIndexes);
-    void unindentBlock(unsigned int blockIndex, BlockInfo *blockInfo, bool isSecondRun);
+    void unindentBlock(unsigned int blockIndex, BlockInfo *blockInfo, bool isSecondRun, int numberOfAlreadyUnindentedBlocks);
     void unindentBlocks(QList<int> selectedBlockIndexes);
-    void setTextAtIndex(const int blockIndex, QString qmlHtml);
+    void setTextAtIndex(const int blockIndex, QString qmlHtml, int cursorPositionQML=0);
     void loadText(const QString& text);
     void clear();
 
 signals:
+    void blockToFocusOnChanged(int blockIndex);
     void aboutToChangeText();
     void textChangeFinished();
     void aboutToLoadText();
@@ -69,15 +99,24 @@ private:
     unsigned int m_tabLengthInSpaces;
     int m_textLineHeightInPercentage;
     int m_blockIndexToFocusOn;
+    QList<CompoundAction> m_undoStack;
+    QList<CompoundAction> m_redoStack;
 
     void updateBlockUsingPlainText(BlockInfo* blockInfo, unsigned int blockIndex, QString &plainText);
     QString QmlHtmlToMarkdown(QString &qmlHtml);
     void determineBlockIndentAndParentChildRelationship(BlockInfo* blockInfo, int positionToStartSearchFrom);
     void updateBlockText(BlockInfo* blockInfo, const QString &plainText, unsigned int lineStartPos, unsigned int lineEndPos);
     void updateBlocksLinePositions(unsigned int blockPosition, int delta);
-    void updateSourceTextBetweenLines(unsigned int startLinePos, unsigned int endLinePos, const QString &newText);
+    void updateSourceTextBetweenLines(int startLinePos,
+                                      int endLinePos,
+                                      const QString &newText,
+                                      bool shouldCreateUndo=true,
+                                      int cursorPosition=0,
+                                      SingleAction::ActionType actionType=SingleAction::ActionType::Modify,
+                                      OneCharOperation oneCharoperation=OneCharOperation::NoOneCharOperation,
+                                      bool isForceMergeLastAction=false);
     unsigned int calculateTotalIndentLength(const QString &str, BlockInfo *blockInfo);
+    double estimateMemoryUsageInKB(const QList<CompoundAction> &undoStack);
 };
-
 
 #endif // BLOCKMODEL_H

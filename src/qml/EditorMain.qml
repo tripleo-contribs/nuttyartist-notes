@@ -4,6 +4,7 @@ import MarkdownHighlighter 1.0
 import com.company.BlockModel 1.0
 import nuttyartist.notes 1.0
 import QtQuick.Controls.Universal 2.15
+import QtQuick.Shapes 1.15
 
 Rectangle {
     id: root
@@ -92,7 +93,7 @@ Rectangle {
     property string accentColor: "#2383e2"
     property string selectionColor: root.themeData.theme === "Dark" ? "#31353a" : "#d2e4fa" // "#e9f2fd"
     property string headingColor: root.themeData.theme === "Dark" ? "#ccdbe5" : "#444444"
-    property color todoItemCheckedTextColor: root.themeData === "Dark" ? "gray" : Qt.rgba(55/255, 53/255, 47/255, 0.45)
+    property color todoItemCheckedTextColor: root.themeData.theme === "Dark" ? "#7f7f7f" : Qt.rgba(55/255, 53/255, 47/255, 0.45)
     property list<string> listOfSansSerifFonts: []
     property list<string> listOfSerifFonts: []
     property list<string> listOfMonoFonts: []
@@ -110,9 +111,11 @@ Rectangle {
     property real cursorX: 0
     property bool isCursorMovedVertically: false
     property real cursorXSaved: 0
-    property bool isHoldingControl: false
-    property var selectedBlock: null
     property bool isAnyKeyPressed: false
+    property bool isHoldingControl: false
+    property bool isHoldingShift: false
+    property bool isHoldingCapsLock: false
+    property var selectedBlock: null
     property bool enableCursorAnimation: true
     property int cursorDefaultAnimationSpeed: 100
     property int cursorCurrentAnimationSpeed: 100
@@ -146,10 +149,16 @@ Rectangle {
         function onNewBlockCreated(blockIndex : int) {
             root.blockIndexToFocusOn = blockIndex;
         }
+
+        function onBlockToFocusOnChanged(blockIndex : int) {
+            root.blockIndexToFocusOn = blockIndex;
+            root.blockToFocusOn(blockIndex);
+        }
     }
 
     function blockToFocusOn(blockIndex : int) {
         console.log("In blockToFocusOn 0");
+        console.log("blockIndex: ", blockIndex);
         var block = blockEditorView.itemAtIndex(blockIndex);
         if (block !== null && block.textEditorPointer !== null) {
             console.log("In blockToFocusOn");
@@ -483,9 +492,9 @@ Rectangle {
                 duration: 300
                 easing.type: Easing.OutExpo
 
-                onFinished: {
-                    BlockModel.backSpaceAtStartOfBlockTextPressed(delegate.index);
-                }
+//                onFinished: {
+//                    BlockModel.backSpacePressedAtStartOfBlock(delegate.index);
+//                }
             }
 
             PropertyAnimation {
@@ -532,9 +541,11 @@ Rectangle {
             ListView.onAdd: {
                 if (root.blockIndexToFocusOn !== -1 && delegate.index === root.blockIndexToFocusOn) {
                     console.log("added");
+                    root.selectedBlockIndexes = [delegate.index];
                     blockCreationDelegateAnimation.start();
                     blockCreationTextAnimation.start();
-                    textEditorPointer.cursorPosition = 0;
+//                    textEditorPointer.cursorPosition = 0;
+                    textEditorPointer.cursorPosition = textEditor.length;
                     console.log("cursorPosition 2");
                     textEditorPointer.forceActiveFocus();
                     root.selectedBlock = delegate;
@@ -626,12 +637,21 @@ Rectangle {
                 }
 
                 Rectangle {
-                    id: dividerDelimiter
+                    id: dividerBackground
                     visible: delegate.blockType === BlockInfo.Divider
-                    anchors.verticalCenter: textEditor.verticalCenter
-                    height: 1
+                    color: root.selectedBlockIndexes.length > 1 && root.selectedBlockIndexes.includes(delegate.index) ? root.selectionColor : root.themeData.backgroundColor
+                    height: delegate.height //- 2
+//                    y: 1
                     width: root.editorWidth - delimiterAndTextRow.x - editorRightLeftPadding
-                    color: root.themeData.theme === "Dark" ? "#525354" : "#d9d9d9"
+
+                    Rectangle {
+                        id: dividerDelimiter
+                        visible: delegate.blockType === BlockInfo.Divider
+                        anchors.verticalCenter: parent.verticalCenter
+                        height: 1
+                        width: root.editorWidth - delimiterAndTextRow.x - editorRightLeftPadding
+                        color: root.themeData.theme === "Dark" ? "#525354" : "#d9d9d9"
+                    }
                 }
 
                 Text {
@@ -738,9 +758,6 @@ Rectangle {
                     }
 
                     id: textEditor
-                    property bool isAnyKeyPressed: false // To prevent calling setTextAtIndex when text is being assigned when the object first loads
-                    property bool isHoldingShift: false
-                    property bool isHoldingCapsLock: false
 
                     leftPadding: 0
                     topPadding: if (delegate.blockType === BlockInfo.Heading && delegate.index > 0) {
@@ -771,7 +788,7 @@ Rectangle {
                     text: delegate.blockTextHtml
                     textFormat: TextArea.RichText
                     tabStopDistance: 20
-                    // TODO: Qt has a bug where sometimes the strikeout isn't consistently seen until scrolling, very weird. File bug report.
+                    // TODO: Qt has a bug where sometimes the strikeout isn't consistently seen, very weird. File bug report.
                     // So we disable this for now...
 //                    font.strikeout: delegate.blockType === BlockInfo.Todo && delegate.blockMetaData["taskChecked"] ? true : false
                     font.family: root.currentlySelectedFontFamily
@@ -961,7 +978,7 @@ Rectangle {
                         }
                         if (eventKey !== Qt.Key_Backspace) root.lastCursorPos += 1;
                         console.log("lastCursorPos CHANGED 21:", root.lastCursorPos);
-                        var isPressedCharLower = !isHoldingShift && !isHoldingCapsLock;
+                        var isPressedCharLower = !root.isHoldingShift && !root.isHoldingCapsLock;
                         BlockModel.editBlocks(root.selectedBlockIndexes, firstBlockSelectionStart, lastBlockSelectionEnd, savedPressedChar, isPressedCharLower);
                         console.log("root.selectedBlockIndexes: 20", root.selectedBlockIndexes);
                         root.blockToFocusOn(firstBlockIndex);
@@ -972,8 +989,6 @@ Rectangle {
                         textEditor.cursorAnimationRunning = false;
                         root.cursorAnimationRunning = false;
                         root.isAnyKeyPressed = true;
-                        if (!isAnyKeyPressed)
-                            isAnyKeyPressed = true;
 
                         if (event.key === Qt.Key_Tab) {
                             event.accepted = true;
@@ -996,14 +1011,15 @@ Rectangle {
                         }
 
                         if (event.key === Qt.Key_Shift) {
+                                            console.log("SHIFT IS ON");
                             event.accepted = true;
-                            isHoldingShift = true;
+                            root.isHoldingShift = true;
                             return;
                         }
 
                         if (event.key === Qt.Key_CapsLock) {
                             event.accepted = true;
-                            isHoldingCapsLock = true;
+                            root.isHoldingCapsLock = true;
                             return;
                         }
 
@@ -1011,6 +1027,18 @@ Rectangle {
                             event.accepted = true;
                             root.isHoldingControl = true;
                             return;
+                        }
+
+                        if ((root.isHoldingShift && root.isHoldingControl && event.key === Qt.Key_Z) || (root.isHoldingControl && event.key === Qt.Key_Y)) { // TODO: Why Qt.Key_Redo doesn't work?
+                           console.log("REDO QML");
+                           event.accepted = true;
+                           BlockModel.redo();
+                           return;
+                        } else if (!root.isHoldingShift && root.isHoldingControl && event.key === Qt.Key_Z) { // TODO: Why Qt.Key_Undo doesn't work?
+                           console.log("UNDO QML");
+                           event.accepted = true;
+                           BlockModel.undo();
+                           return;
                         }
 
                         if (event.key === Qt.Key_Right) {
@@ -1136,24 +1164,27 @@ Rectangle {
                         }
 
                         if (event.key === Qt.Key_Backspace) {
+
                             root.cursorCurrentAnimationSpeed = 30;
                             if (root.selectedBlockIndexes.length === 1 && cursorPosition === 0) {
                                 if (delegate.blockIndentLevel === 0 && delegate.blockType === BlockInfo.RegularText && delegate.index > 0) {
                                     var previousBlock = blockEditorView.itemAtIndex(delegate.index - 1);
                                     if (previousBlock !== null && previousBlock.textEditorPointer !== null) {
                                         root.lastCursorPos = previousBlock.textEditorPointer.length;
-                                                        console.log("lastCursorPos CHANGED 12:", root.lastCursorPos);
                                     }
                                 }
 
                                 if ((delegate.blockType !== BlockInfo.RegularText && delegate.blockDelimiter.length > 0) || delegate.blockIndentLevel > 0) {
-                                    BlockModel.backSpaceAtStartOfBlockTextPressed(delegate.index);
+                                    // If not a regular text block or if it is but it is indented
+                                    BlockModel.backSpacePressedAtStartOfBlock(delegate.index);
                                     blockToFocusOn(delegate.index);
                                 } else if (delegate.index > 0 && !(BlockModel.getBlockType(delegate.index - 1) === BlockInfo.Divider && textEditor.length > 0)) {
-                                    BlockModel.moveBlockTextToPreviousBlock(delegate.index);
+                                    // If it's a regular text block and it's not indented, and it's not a divider
+                                    BlockModel.moveBlockTextToBlockAbove(delegate.index);
                                     blockToFocusOn(delegate.index - 1);
-                                    blockDeletionDelegateAnimation.start();
-                                    blockDeletionTextAnimation.start();
+                                    BlockModel.backSpacePressedAtStartOfBlock(delegate.index);
+//                                    blockDeletionDelegateAnimation.start(); // When the animation finishes we'll call backSpacePressedAtStartOfBlock
+//                                    blockDeletionTextAnimation.start();
                                 }
                             }
                         }
@@ -1195,10 +1226,10 @@ Rectangle {
                         } else if (!root.isHoldingControl){
                             root.enableCursorAnimation = false;
                             if (root.selectedBlockIndexes.length === 1) {
-                                if (isHoldingShift) {
+                                if (root.isHoldingShift) {
                                     // soft break
                                     textEditor.insert(cursorPosition, "<br />"); // It proved too difficult to do this simple thing in the C++ model due to inconssitencies between the qml and c++ formatting of html/markdown
-                                    BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length));
+                                    BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length), textEditor.cursorPosition);
                                     checkIfToScrollDown();
                                 } else {
                                     // hard break
@@ -1206,7 +1237,7 @@ Rectangle {
                                         // cursor is at end of text
                                         if (textEditor.length === 0 && delegate.blockType !== BlockInfo.RegularText && delegate.blockType !== BlockInfo.Divider) {
                                             // if text length == 0 and user hits enter, we usually want to remove the delimiter
-                                            BlockModel.backSpaceAtStartOfBlockTextPressed(delegate.index);
+                                            BlockModel.backSpacePressedAtStartOfBlock(delegate.index);
                                         } else {
                                             // cursor is at end of text and the text is not empty
                                             if (delegate.blockType === BlockInfo.Quote || delegate.blockType === BlockInfo.DropCap) {
@@ -1215,15 +1246,14 @@ Rectangle {
                                                     // There's a line break at the last line without text
                                                     root.lastCursorRect = textEditor.cursorRectangle;
                                                     root.canUpdateCursorPos = false;
-                                                    BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length - 1));
-                                                    BlockModel.insertNewBlock(delegate.index, "");
+                                                    BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length - 1), textEditor.cursorPosition);
+                                                    BlockModel.insertNewBlock(delegate.index, "", true);
                                                     checkIfToScrollDown();
                                                 } else {
                                                     // There's text at the last line, therefore
                                                     // imitate soft break
-                                                    console.log("RAR 2");
                                                     textEditor.insert(cursorPosition, "<br />"); // It proved too difficult to do this simple thing in the C++ model due to inconssitencies between the qml and c++ formatting of html/markdown
-                                                    BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length));
+                                                    BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length), textEditor.cursorPosition);
                                                     checkIfToScrollDown();
                                                 }
                                             } else {
@@ -1237,22 +1267,22 @@ Rectangle {
                                         if (delegate.blockType === BlockInfo.Quote || delegate.blockType === BlockInfo.DropCap) {
                                             // imitate soft break
                                             textEditor.insert(cursorPosition, "<br />"); // It proved too difficult to do this simple thing in the C++ model due to inconssitencies between the qml and c++ formatting of html/markdown
-                                            BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length));
+                                            BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length), textEditor.cursorPosition);
                                             checkIfToScrollDown();
                                         } else {
                                             // hard break with saving text
                                             var savedText = textEditor.getFormattedText(cursorPosition, textEditor.length);
-                                            BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, cursorPosition));
-                                            BlockModel.insertNewBlock(delegate.index, savedText);
+                                            BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, cursorPosition), textEditor.cursorPosition);
+                                            BlockModel.insertNewBlock(delegate.index, savedText, true);
                                             checkIfToScrollDown();
                                         }
                                     }
                                 }
                             } else if (root.selectedBlockIndexes.length > 1) {
-                                if (isHoldingShift) {
+                                if (root.isHoldingShift) {
                                     editingMultipleBlocks(-1);
                                     textEditor.insert(cursorPosition, "<br />");
-                                    BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length));
+                                    BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length), textEditor.cursorPosition);
                                 } else {
                                     editingMultipleBlocks(-1);
                                     BlockModel.insertNewBlock(delegate.index, "");
@@ -1266,16 +1296,17 @@ Rectangle {
                          textEditor.cursorAnimationRunning = true;
                          root.cursorAnimationRunning = true;
                          root.isAnyKeyPressed = false;
-                         isAnyKeyPressed = false;
                          root.enableCursorAnimation = true;
                          root.cursorCurrentAnimationSpeed = root.cursorDefaultAnimationSpeed;
 
                          if (event.key === Qt.Key_Shift) {
-                           isHoldingShift = false;
+                            event.accepted = true;
+                            root.isHoldingShift = false;
                          }
 
                          if (event.key === Qt.Key_CapsLock) {
-                             isHoldingCapsLock = false;
+                            event.accepted = true;
+                            root.isHoldingCapsLock = false;
                          }
 
                         if (event.key === Qt.Key_Control) {
@@ -1293,7 +1324,7 @@ Rectangle {
                             if (root.selectedBlock === delegate && root.isAnyKeyPressed && !root.isProgrammaticChange && root.selectedBlockIndexes.length <= 1) {
                                 if(delegate.blockType !== BlockInfo.Divider) {
 //                                    console.log("In setTextAtIndex");
-                                    BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length));
+                                    BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length), textEditor.cursorPosition);
                                     delegate.lastBlockType = delegate.blockType;
 //                                    root.selectedBlockIndexes = [delegate.index];
 //                                    root.selectedBlock = delegate;
