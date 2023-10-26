@@ -143,32 +143,41 @@ void BlockModel::updateBlockText(BlockInfo* blockInfo, const QString &plainText,
 
 void BlockModel::determineBlockIndentAndParentChildRelationship(BlockInfo* blockInfo, int positionToStartSearchFrom)
 {
+    qDebug() << "In determineBlockIndentAndParentChildRelationship";
     if (positionToStartSearchFrom < 1 || positionToStartSearchFrom > m_blockList.length()-1)
         return;
 
-    if (blockInfo->indentLevel() == 0 && blockInfo->parent() != nullptr) {
-        blockInfo->parent()->removeChild(blockInfo);
+    if (blockInfo->totalIndentLength() == 0) {
+        if (blockInfo->parent() != nullptr)
+            blockInfo->parent()->removeChild(blockInfo);
         blockInfo->setParent(nullptr);
         return;
     }
 
+    qDebug() << "here 0";
+
     // We traverse the list backwards to check if this block has a parent
     for (int i = positionToStartSearchFrom; i >= 0; i--) {
         BlockInfo* previousBlock = m_blockList[i];
+        qDebug() << "previousBlock->totalIndentLength(): " << previousBlock->totalIndentLength();
 
        // If previousBlock has a smaller total indent length than the current line/block
        // We assign it has a parent for the current block
         if (previousBlock->totalIndentLength() < blockInfo->totalIndentLength()) {
 
+            qDebug() << "here 1";
+
             // If parent is changing, we remove this block from its children
             if (blockInfo->parent() != nullptr) { //&& blockInfo->parent() != previousBlock) {
                 blockInfo->parent()->removeChild(blockInfo);
+                qDebug() << "here 2";
+                qDebug() << "parent text: " << blockInfo->parent()->textPlainText();
             }
 
             blockInfo->setIndentLevel(previousBlock->indentLevel() + 1);
+            qDebug() << "previousBlock->indentLevel() + 1: " << previousBlock->indentLevel() + 1;
             blockInfo->setParent(previousBlock);
-            if (!previousBlock->children().contains(blockInfo))
-                previousBlock->addChild(blockInfo);
+            previousBlock->addChild(blockInfo);
 //            previousBlock->addChild(blockInfo);
             break;
         }
@@ -177,6 +186,8 @@ void BlockModel::determineBlockIndentAndParentChildRelationship(BlockInfo* block
 
 void BlockModel::updateBlockUsingPlainText(BlockInfo* blockInfo, unsigned int blockIndex, QString &plainText)
 {
+    qDebug() << "In updateBlockUsingPlainText";
+    qDebug() << "plainText: " << plainText;
     unsigned int lineTotalIndentLength = calculateTotalIndentLength(plainText, blockInfo);
     blockInfo->setTotalIndentLength(lineTotalIndentLength);
     blockInfo->determineBlockType(plainText);
@@ -188,9 +199,13 @@ void BlockModel::updateBlockUsingPlainText(BlockInfo* blockInfo, unsigned int bl
                     lastPos + 1,
                     lastPos + 1);
     blockInfo->setIndentLevel(0);
-    if (blockInfo->parent() != nullptr && blockInfo->parent()->children().contains(blockInfo)) {
-        blockInfo->parent()->removeChild(blockInfo);
+    if (blockInfo->parent() != nullptr) {
+        if (!blockInfo->parent()->children().isEmpty() && blockInfo->parent()->children().contains(blockInfo))
+            blockInfo->parent()->removeChild(blockInfo);
+        if (lineTotalIndentLength > 0)
+            blockInfo->setParent(nullptr);
     }
+//    blockInfo->setParent(nullptr);
     if (lineTotalIndentLength > 0 && m_blockList.length() > 0) {
         determineBlockIndentAndParentChildRelationship(blockInfo, blockIndex - 1);
     }
@@ -510,17 +525,17 @@ void BlockModel::indentBlocks(QList<int> selectedBlockIndexes)
                                         blockInfo->lineStartPos(),
                                         blockInfo->lineEndPos());
 
+                        if (blockInfo->parent() != nullptr) {
+                            blockInfo->parent()->removeChild(blockInfo);
+                        }
+                        blockInfo->setParent(previousBlock);
+                        previousBlock->addChild(blockInfo);
+
                         // We need to run on all the children and ask them to reavaluate their parent
                         for (auto &child : blockInfo->children()) {
                             determineBlockIndentAndParentChildRelationship(child, m_blockList.indexOf(child) - 1);
                         }
 
-                        if (blockInfo->parent() != nullptr) {
-                            blockInfo->parent()->removeChild(blockInfo);
-                        }
-                        blockInfo->setParent(previousBlock);
-                        if (!previousBlock->children().contains(blockInfo))
-                            previousBlock->addChild(blockInfo);
 //                        previousBlock->addChild(blockInfo);
 
                         QModelIndex modelIdx = this->index(i);
@@ -699,10 +714,14 @@ void BlockModel::backSpacePressedAtStartOfBlock(int blockIndex)
         emit textChangeFinished();
         beginRemoveRows(QModelIndex(), blockIndex, blockIndex);
         // We need to run on all the children and ask them to reavaluate their parent
+        m_blockList.removeAt(blockIndex);
+        if (blockInfo->parent() != nullptr) {
+            blockInfo->parent()->removeChild(blockInfo);
+        }
         for (auto &child : blockInfo->children()) {
+            child->setParent(nullptr);
             determineBlockIndentAndParentChildRelationship(child, blockIndex - 1    );
         }
-        m_blockList.removeAt(blockIndex);
         blockInfo->deleteLater();
         endRemoveRows();
     }
@@ -1012,6 +1031,7 @@ void BlockModel::undo()
                                              OneCharOperation::NoOneCharOperation,
                                              false);
                 for (auto &child : blockInfo->children()) {
+                    child->setParent(nullptr);
                     determineBlockIndentAndParentChildRelationship(child, blockIndex - 1    );
                 }
                 m_blockList.removeAt(blockIndex);
@@ -1060,6 +1080,7 @@ void BlockModel::redo()
                 for (unsigned int blockIndex = singleAction.blockStartIndex; blockIndex <= singleAction.blockEndIndex; blockIndex++) {
                     BlockInfo *blockInfo = m_blockList[blockIndex];
                     for (auto &child : blockInfo->children()) {
+                        child->setParent(nullptr);
                         determineBlockIndentAndParentChildRelationship(child, blockIndex - 1);
                     }
                     blockInfo->deleteLater();
