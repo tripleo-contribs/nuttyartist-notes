@@ -532,7 +532,6 @@ Rectangle {
                     textEditor.cursorAnimationRunning = true;
                     textEditor.cursorShowed();
                     textEditor.cursorPosition = root.lastCursorPos;
-                    console.log("cursorPosition 1");
                     textEditor.forceActiveFocus();
                 }
 //                console.log("reused: ", delegate.blockTextPlainText);
@@ -540,13 +539,11 @@ Rectangle {
 
             ListView.onAdd: {
                 if (root.blockIndexToFocusOn !== -1 && delegate.index === root.blockIndexToFocusOn) {
-                    console.log("added");
                     root.selectedBlockIndexes = [delegate.index];
                     blockCreationDelegateAnimation.start();
                     blockCreationTextAnimation.start();
 //                    textEditorPointer.cursorPosition = 0;
                     textEditorPointer.cursorPosition = textEditor.length;
-                    console.log("cursorPosition 2");
                     textEditorPointer.forceActiveFocus();
                     root.selectedBlock = delegate;
                     console.log("selectedBlock 3: ", delegate.index);
@@ -1247,6 +1244,7 @@ Rectangle {
                                                     root.lastCursorRect = textEditor.cursorRectangle;
                                                     root.canUpdateCursorPos = false;
                                                     BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length - 1), textEditor.cursorPosition);
+                                                    console.log("delegate.index 1: ", delegate.index);
                                                     BlockModel.insertNewBlock(delegate.index, "", true);
                                                     checkIfToScrollDown();
                                                 } else {
@@ -1259,6 +1257,7 @@ Rectangle {
                                             } else {
                                                 // If not a quote block and cursor is at the end
                                                 // hard break
+                                                console.log("delegate.index 2: ", delegate.index);
                                                 BlockModel.insertNewBlock(delegate.index, "");
                                                 checkIfToScrollDown();
                                             }
@@ -1273,6 +1272,7 @@ Rectangle {
                                             // hard break with saving text
                                             var savedText = textEditor.getFormattedText(cursorPosition, textEditor.length);
                                             BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, cursorPosition), textEditor.cursorPosition);
+                                            console.log("delegate.index 3: ", delegate.index);
                                             BlockModel.insertNewBlock(delegate.index, savedText, true);
                                             checkIfToScrollDown();
                                         }
@@ -1285,6 +1285,7 @@ Rectangle {
                                     BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length), textEditor.cursorPosition);
                                 } else {
                                     editingMultipleBlocks(-1);
+                                    console.log("delegate.index 4: ", delegate.index);
                                     BlockModel.insertNewBlock(delegate.index, "");
                                     checkIfToScrollDown();
                                 }
@@ -1320,7 +1321,6 @@ Rectangle {
                         if (!delegate.isPooled) {
 //                            console.log("onTextChanged");
                             cursorPosition = root.lastCursorPos;
-//                            console.log("cursorPosition 3");
                             if (root.selectedBlock === delegate && root.isAnyKeyPressed && !root.isProgrammaticChange && root.selectedBlockIndexes.length <= 1) {
                                 if(delegate.blockType !== BlockInfo.Divider) {
 //                                    console.log("In setTextAtIndex");
@@ -1399,7 +1399,6 @@ Rectangle {
                     function selectWordAtPos(pos) {
                         cursorVisible = false;
                         cursorPosition = pos;
-                        console.log("cursorPosition 4");
                         selectWord();
                         selectionArea.selStartPos = textEditor.selectionStart;
                         selectionArea.selEndPos = textEditor.selectionEnd;
@@ -1423,7 +1422,6 @@ Rectangle {
                     function selectLineAtPos(pos) {
                         cursorVisible = false;
                         cursorPosition = pos;
-                        console.log("cursorPosition 5");
                         const [lineStart, lineEnd] = findLineStartAndEndPostitionAtPos(textEditor.getText(0, textEditor.length), pos);
                         textEditor.select(lineStart, lineEnd);
                         selectionArea.selStartPos = textEditor.selectionStart;
@@ -1485,7 +1483,6 @@ Rectangle {
             const pos = blockDelegateText.positionAt(relItemX, y - relItemY);
             blockDelegateText.forceActiveFocus();
             blockDelegateText.cursorPosition = pos;
-//            console.log("cursorPosition 6");
             root.lastCursorPos = pos;
 //            console.log("lastCursorPos CHANGED 13:", root.lastCursorPos);
             return [index, pos];
@@ -1554,7 +1551,6 @@ Rectangle {
                 var lastBlock = blockEditorView.itemAtIndex(lastBlockIndex);
                 if (lastBlock !== null && lastBlock.textEditorPointer !== null) {
                     lastBlock.textEditorPointer.cursorPosition = lastBlock.textEditorPointer.length;
-                               console.log("cursorPosition 7");
                     lastBlock.textEditorPointer.forceActiveFocus();
                     root.selectedBlockIndexes = [lastBlockIndex];
                     root.selectedBlock = blockEditorView.itemAtIndex(lastBlockIndex);

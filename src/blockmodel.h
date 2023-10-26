@@ -21,19 +21,20 @@ enum class OneCharOperation {
     NoOneCharOperation,
 };
 
+enum ActionType {
+    Insert,
+    Remove,
+    Modify
+};
+
 struct SingleAction {
-    unsigned int blockStartIndex;
-    unsigned int blockEndIndex;
-    enum ActionType {
-        Insert,
-        Remove,
-        Modify
-    };
-    ActionType actionType;
-    QString oldPlainText;
-    QString newPlainText;
-    OneCharOperation oneCharOperation;
-    int lastCursorPosition;
+    unsigned int blockStartIndex = 0;
+    unsigned int blockEndIndex = 0;
+    ActionType actionType = ActionType::Modify;
+    QString oldPlainText = "";
+    QString newPlainText = "";
+    OneCharOperation oneCharOperation = OneCharOperation::NoOneCharOperation;
+    int lastCursorPosition = 0;
 };
 
 struct CompoundAction {
@@ -112,7 +113,7 @@ private:
                                       const QString &newText,
                                       bool shouldCreateUndo=true,
                                       int cursorPosition=0,
-                                      SingleAction::ActionType actionType=SingleAction::ActionType::Modify,
+                                      ActionType actionType=ActionType::Modify,
                                       OneCharOperation oneCharoperation=OneCharOperation::NoOneCharOperation,
                                       bool isForceMergeLastAction=false);
     unsigned int calculateTotalIndentLength(const QString &str, BlockInfo *blockInfo);

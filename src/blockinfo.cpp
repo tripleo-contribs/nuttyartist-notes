@@ -178,6 +178,9 @@ void BlockInfo::setLineStartPos(unsigned int newLineStartPos)
 {
     if (m_lineStartPos == newLineStartPos)
         return;
+    if (newLineStartPos > 100000) {
+        qDebug() << "TOO BIG 14";
+    }
     m_lineStartPos = newLineStartPos;
     emit lineStartPosChanged();
 }
