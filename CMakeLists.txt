@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.21)
+cmake_minimum_required(VERSION 3.10)
 
 set(APP_VERSION 2.2.0)
 set(APP_ID "io.github.nuttyartist.notes")
