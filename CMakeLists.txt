@@ -277,7 +277,7 @@ elseif(WIN32)
 endif()
 
 add_executable(${PROJECT_NAME} WIN32 MACOSX_BUNDLE ${SOURCES}
-    ${SOURCES_3RD_PARTY})
+                                                   ${SOURCES_3RD_PARTY})
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/src)
 

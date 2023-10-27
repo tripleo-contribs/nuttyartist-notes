@@ -42,7 +42,8 @@ NoteEditorLogic::NoteEditorLogic(CustomDocument *textEdit, QLabel *editorDateLab
       m_currentMinimumEditorPadding{ 0 },
       m_blockModel{ blockModel }
 {
-    connect(m_blockModel, &BlockModel::textChangeFinished, this,&NoteEditorLogic::onBlockModelTextChanged);
+    connect(m_blockModel, &BlockModel::textChangeFinished, this,
+            &NoteEditorLogic::onBlockModelTextChanged);
     connect(m_textEdit, &QTextEdit::textChanged, this, &NoteEditorLogic::onTextEditTextChanged);
     connect(this, &NoteEditorLogic::requestCreateUpdateNote, m_dbManager,
             &DBManager::onCreateUpdateRequestedNoteContent, Qt::QueuedConnection);
@@ -69,9 +70,9 @@ NoteEditorLogic::NoteEditorLogic(CustomDocument *textEdit, QLabel *editorDateLab
         if (m_kanbanWidget != nullptr) {
             emit setVisibilityOfFrameRightNonEditor(false);
             bool shouldRecheck = checkForTasksInEditor();
-//            if (shouldRecheck) {
-//                checkForTasksInEditor();
-//            }
+            //            if (shouldRecheck) {
+            //                checkForTasksInEditor();
+            //            }
             m_kanbanWidget->show();
             m_textEdit->hide();
             m_textEdit->clearFocus();
@@ -125,13 +126,13 @@ void NoteEditorLogic::showNotesInEditor(const QVector<NodeData> &notes)
         QDateTime dateTime = notes[0].lastModificationdateTime();
         int scrollbarPos = notes[0].scrollBarPosition();
 
-//         set text and date
-//        bool isTextChanged = content != m_textEdit->toPlainText();
-//        if (isTextChanged) {
-            m_textEdit->setText(content);
-            m_blockModel->loadText(content);
-//        }
-//        m_blockModel->loadText(content);
+        //         set text and date
+        //        bool isTextChanged = content != m_textEdit->toPlainText();
+        //        if (isTextChanged) {
+        m_textEdit->setText(content);
+        m_blockModel->loadText(content);
+        //        }
+        //        m_blockModel->loadText(content);
 
         QString noteDate = dateTime.toString(Qt::ISODate);
         QString noteDateEditor = getNoteDateEditor(noteDate);
@@ -146,10 +147,10 @@ void NoteEditorLogic::showNotesInEditor(const QVector<NodeData> &notes)
 #if QT_VERSION >= QT_VERSION_CHECK(6, 2, 0)
         if (m_kanbanWidget != nullptr && m_kanbanWidget->isVisible()) {
             emit clearKanbanModel();
-//            bool shouldRecheck = checkForTasksInEditor();
-//            if (shouldRecheck) {
-//                checkForTasksInEditor();
-//            }
+            //            bool shouldRecheck = checkForTasksInEditor();
+            //            if (shouldRecheck) {
+            //                checkForTasksInEditor();
+            //            }
             m_textEdit->setVisible(false);
             return;
         } else {
@@ -215,7 +216,7 @@ void NoteEditorLogic::onBlockModelTextChanged()
             // move note to the top of the list
             emit moveNoteToListViewTop(m_currentNotes[0]);
 
-                   // Get the new data
+            // Get the new data
             QString firstline = getFirstLine(sourceDocumentPlainText);
             QDateTime dateTime = QDateTime::currentDateTime();
             QString noteDate = dateTime.toString(Qt::ISODate);
@@ -226,7 +227,7 @@ void NoteEditorLogic::onBlockModelTextChanged()
             m_currentNotes[0].setLastModificationDateTime(dateTime);
             m_currentNotes[0].setIsTempNote(false);
             // TODO
-//            m_currentNotes[0].setScrollBarPosition(m_textEdit->verticalScrollBar()->value());
+            //            m_currentNotes[0].setScrollBarPosition(m_textEdit->verticalScrollBar()->value());
             // update note data in list view
             emit updateNoteDataInList(m_currentNotes[0]);
             m_isContentModified = true;
@@ -625,7 +626,7 @@ bool NoteEditorLogic::checkForTasksInEditor()
         if (lineTrimmed.startsWith("#")) {
             if (!tasks.isEmpty() && currentTitle.isEmpty()) {
                 // If we have only tasks without a header we insert one and call this function again
-//                addUntitledColumnToTextEditor(tasks.first()["taskStartLine"].toInt());
+                //                addUntitledColumnToTextEditor(tasks.first()["taskStartLine"].toInt());
                 return true;
             }
             appendNewColumn(data, currentColumn, currentTitle, tasks);
@@ -638,7 +639,7 @@ bool NoteEditorLogic::checkForTasksInEditor()
         else if (lineTrimmed.endsWith("::") && getTaskDataInLine(line)["taskMatchIndex"] == -1) {
             if (!tasks.isEmpty() && currentTitle.isEmpty()) {
                 // If we have only tasks without a header we insert one and call this function again
-//                addUntitledColumnToTextEditor(tasks.first()["taskStartLine"].toInt());
+                //                addUntitledColumnToTextEditor(tasks.first()["taskStartLine"].toInt());
                 return true;
             }
             appendNewColumn(data, currentColumn, currentTitle, tasks);
@@ -683,7 +684,7 @@ bool NoteEditorLogic::checkForTasksInEditor()
 
     if (!tasks.isEmpty() && currentTitle.isEmpty()) {
         // If we have only tasks without a header we insert one and call this function again
-//        addUntitledColumnToTextEditor(tasks.first()["taskStartLine"].toInt());
+        //        addUntitledColumnToTextEditor(tasks.first()["taskStartLine"].toInt());
         return true;
     }
 

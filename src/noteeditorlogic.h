@@ -34,7 +34,8 @@ public:
 #if QT_VERSION >= QT_VERSION_CHECK(6, 2, 0)
     explicit NoteEditorLogic(CustomDocument *textEdit, QLabel *editorDateLabel,
                              QLineEdit *searchEdit, QWidget *kanbanWidget, TagListView *tagListView,
-                             TagPool *tagPool, DBManager *dbManager, BlockModel *blockModel, QObject *parent = nullptr);
+                             TagPool *tagPool, DBManager *dbManager, BlockModel *blockModel,
+                             QObject *parent = nullptr);
 
 #else
     explicit NoteEditorLogic(CustomDocument *textEdit, QLabel *editorDateLabel,

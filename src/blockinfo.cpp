@@ -1,7 +1,7 @@
 #include "blockinfo.h"
 
 BlockInfo::BlockInfo(QObject *parent)
-    : QObject{parent},
+    : QObject{ parent },
       m_textHtml(""),
       m_textPlainText(""),
       m_blockType(BlockType::RegularText),
@@ -57,7 +57,8 @@ void BlockInfo::setBlockType(const BlockType &newType)
     emit blockTypeChanged();
 }
 
-bool BlockInfo::isNumberedList(QString str) {
+bool BlockInfo::isNumberedList(QString str)
+{
     // Check if the string starts with a number
     int index = 0;
     while (index < str.length() && str[index].isDigit()) {
@@ -86,7 +87,8 @@ void BlockInfo::setIndentedString(const QString &newIndentedString)
     emit indentedStringChanged();
 }
 
-QString BlockInfo::trimLeadingWhitespaces(const QString &str) {
+QString BlockInfo::trimLeadingWhitespaces(const QString &str)
+{
     int i;
     for (i = 0; i < str.length(); i++) {
         if (!str[i].isSpace()) {
@@ -100,7 +102,9 @@ BlockInfo::BlockType BlockInfo::determineBlockType(QString text)
 {
     text = trimLeadingWhitespaces(text);
 
-    static const QStringList headingPrefixes = {"# ", "## ", "### ", "#### ", "##### ", "###### "};
+    static const QStringList headingPrefixes = {
+        "# ", "## ", "### ", "#### ", "##### ", "###### "
+    };
     for (const QString &prefix : headingPrefixes) {
         if (text.startsWith(prefix)) {
             setBlockDelimiter(prefix);
@@ -109,7 +113,7 @@ BlockInfo::BlockType BlockInfo::determineBlockType(QString text)
         }
     }
 
-    static const QStringList quotePrefixes = {"| ", "> ", ">> ", ">>> "};
+    static const QStringList quotePrefixes = { "| ", "> ", ">> ", ">>> " };
     for (const QString &prefix : quotePrefixes) {
         if (text.startsWith(prefix)) {
             setBlockDelimiter(prefix);
@@ -118,7 +122,8 @@ BlockInfo::BlockType BlockInfo::determineBlockType(QString text)
         }
     }
 
-    static const QStringList todoItemPrefixes = {"[ ] ", "[x] ", "- [ ] ", "* [ ] ", "+ [ ] ", "- [x] ", "* [x] ", "+ [x] "};
+    static const QStringList todoItemPrefixes = { "[ ] ",   "[x] ",   "- [ ] ", "* [ ] ",
+                                                  "+ [ ] ", "- [x] ", "* [x] ", "+ [x] " };
     for (const QString &prefix : todoItemPrefixes) {
         if (text.startsWith(prefix)) {
             if (text[1] == 'x' || text[1] == 'X' || text[3] == 'x' || text[3] == 'X') {
@@ -136,7 +141,7 @@ BlockInfo::BlockType BlockInfo::determineBlockType(QString text)
         }
     }
 
-    static const QStringList bulletItemPrefixes = {"- ", "* ", "+ "};
+    static const QStringList bulletItemPrefixes = { "- ", "* ", "+ " };
     for (const QString &prefix : bulletItemPrefixes) {
         if (text.startsWith(prefix)) {
             setBlockDelimiter(prefix);
@@ -211,12 +216,12 @@ void BlockInfo::setTotalIndentLength(unsigned int newTotalIndentLength)
     emit totalIndentLengthChanged();
 }
 
-QList<QSharedPointer<BlockInfo> > BlockInfo::children() const
+QList<QSharedPointer<BlockInfo>> BlockInfo::children() const
 {
     return m_children;
 }
 
-void BlockInfo::setChildren(const QList<QSharedPointer<BlockInfo> > &newChildren)
+void BlockInfo::setChildren(const QList<QSharedPointer<BlockInfo>> &newChildren)
 {
     if (m_children == newChildren)
         return;
@@ -268,9 +273,8 @@ void BlockInfo::setIndentLevel(unsigned int newIndentLevel)
 
 bool BlockInfo::isBlockListItem()
 {
-    return m_blockType == BlockType::BulletListItem ||
-            m_blockType == BlockType::NumberedListItem ||
-            m_blockType == BlockType::Todo;
+    return m_blockType == BlockType::BulletListItem || m_blockType == BlockType::NumberedListItem
+            || m_blockType == BlockType::Todo;
 }
 
 QString BlockInfo::blockDelimiter() const
@@ -288,13 +292,10 @@ void BlockInfo::setBlockDelimiter(const QString &newBlockDelimiter)
 
 bool BlockInfo::isIndentable()
 {
-    if (m_blockType == BlockType::RegularText ||
-        m_blockType == BlockType::BulletListItem ||
-        m_blockType == BlockType::NumberedListItem ||
-        m_blockType == BlockType::Todo ||
-        m_blockType == BlockType::Heading ||
-        m_blockType == BlockType::Quote ||
-        m_blockType == BlockType::Divider) {
+    if (m_blockType == BlockType::RegularText || m_blockType == BlockType::BulletListItem
+        || m_blockType == BlockType::NumberedListItem || m_blockType == BlockType::Todo
+        || m_blockType == BlockType::Heading || m_blockType == BlockType::Quote
+        || m_blockType == BlockType::Divider) {
         return true;
     }
 

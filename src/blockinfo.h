@@ -14,16 +14,23 @@ class BlockInfo : public QObject
     QML_ELEMENT
 
     Q_PROPERTY(QString textHtml READ textHtml WRITE setTextHtml NOTIFY textHtmlChanged)
-    Q_PROPERTY(QString textPlainText READ textPlainText WRITE setTextPlainText NOTIFY textPlainTextChanged)
+    Q_PROPERTY(QString textPlainText READ textPlainText WRITE setTextPlainText NOTIFY
+                       textPlainTextChanged)
     Q_PROPERTY(BlockType blockType READ blockType WRITE setBlockType NOTIFY blockTypeChanged)
-    Q_PROPERTY(unsigned int lineStartPos READ lineStartPos WRITE setLineStartPos NOTIFY lineStartPosChanged)
+    Q_PROPERTY(unsigned int lineStartPos READ lineStartPos WRITE setLineStartPos NOTIFY
+                       lineStartPosChanged)
     Q_PROPERTY(unsigned int lineEndPos READ lineEndPos WRITE setLineEndPos NOTIFY lineEndPosChanged)
-    Q_PROPERTY(unsigned int totalIndentLength READ totalIndentLength WRITE setTotalIndentLength NOTIFY totalIndentLengthChanged)
-    Q_PROPERTY(QList<QSharedPointer<BlockInfo >> children READ children WRITE setChildren NOTIFY childrenChanged)
+    Q_PROPERTY(unsigned int totalIndentLength READ totalIndentLength WRITE setTotalIndentLength
+                       NOTIFY totalIndentLengthChanged)
+    Q_PROPERTY(QList<QSharedPointer<BlockInfo>> children READ children WRITE setChildren NOTIFY
+                       childrenChanged)
     Q_PROPERTY(QSharedPointer<BlockInfo> parent READ parent WRITE setParent NOTIFY parentChanged)
-    Q_PROPERTY(unsigned int indentLevel READ indentLevel WRITE setIndentLevel NOTIFY indentLevelChanged)
-    Q_PROPERTY(QString blockDelimiter READ blockDelimiter WRITE setBlockDelimiter NOTIFY blockDelimiterChanged)
-    Q_PROPERTY(QString indentedString READ indentedString WRITE setIndentedString NOTIFY indentedStringChanged)
+    Q_PROPERTY(unsigned int indentLevel READ indentLevel WRITE setIndentLevel NOTIFY
+                       indentLevelChanged)
+    Q_PROPERTY(QString blockDelimiter READ blockDelimiter WRITE setBlockDelimiter NOTIFY
+                       blockDelimiterChanged)
+    Q_PROPERTY(QString indentedString READ indentedString WRITE setIndentedString NOTIFY
+                       indentedStringChanged)
     Q_PROPERTY(QJsonObject metaData READ metaData WRITE setMetaData NOTIFY metaDataChanged)
 
 public:
@@ -62,7 +69,7 @@ public:
     void setTotalIndentLength(unsigned int newTotalIndentLength);
 
     QList<QSharedPointer<BlockInfo>> children() const;
-    void setChildren(const QList<QSharedPointer<BlockInfo >> &newChildren);
+    void setChildren(const QList<QSharedPointer<BlockInfo>> &newChildren);
     void addChild(QSharedPointer<BlockInfo> &newChild);
     void removeChild(QSharedPointer<BlockInfo> &child);
 

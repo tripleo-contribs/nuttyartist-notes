@@ -693,7 +693,7 @@ Rectangle {
                     text: delegate.blockDelimiter.length > 1 ? delegate.blockDelimiter[1] : ""
                     color: root.currentEditorTextColor // root.headingColor?
                     font.family: root.currentlySelectedFontFamily
-                    font.pixelSize: dropCapPixelSize > 500 ? 500 : dropCapPixelSize
+                    font.pixelSize: dropCapPixelSize > 300 ? 300 : dropCapPixelSize
                     font.weight: Font.Bold
                     wrapMode: Text.NoWrap
 

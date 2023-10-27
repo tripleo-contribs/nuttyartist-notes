@@ -527,10 +527,10 @@ void MainWindow::setupKeyboardShortcuts()
     new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_E), m_searchEdit, SLOT(clear()));
     new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_Down), this, SLOT(selectNoteDown()));
     new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_Up), this, SLOT(selectNoteUp()));
-//    new QShortcut(QKeySequence(Qt::Key_Down), this, SLOT(selectNoteDown()));
-//    new QShortcut(QKeySequence(Qt::Key_Up), this, SLOT(selectNoteUp()));
-//    new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_Enter), this, SLOT(setFocusOnText()));
-//    new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_Return), this, SLOT(setFocusOnText()));
+    //    new QShortcut(QKeySequence(Qt::Key_Down), this, SLOT(selectNoteDown()));
+    //    new QShortcut(QKeySequence(Qt::Key_Up), this, SLOT(selectNoteUp()));
+    //    new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_Enter), this, SLOT(setFocusOnText()));
+    //    new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_Return), this, SLOT(setFocusOnText()));
     // new QShortcut(QKeySequence(Qt::Key_Enter), this, SLOT(setFocusOnText()));
     // new QShortcut(QKeySequence(Qt::Key_Return), this, SLOT(setFocusOnText()));
     new QShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_F), this, SLOT(fullscreenWindow()));
@@ -1253,15 +1253,13 @@ void MainWindow::setupKanbanView()
     // Source:
     // https://doc.qt.io/qt-6/qtquick-quickwidgets-qquickwidgetversuswindow-opengl-example.html
 
-//    BlockType::registerEnum("nuttyartist.notes", 1, 0);
+    //    BlockType::registerEnum("nuttyartist.notes", 1, 0);
 
     qmlRegisterSingletonInstance("com.company.BlockModel", 1, 0, "BlockModel", m_blockModel);
     qmlRegisterType<BlockInfo>("nuttyartist.notes", 1, 0, "BlockInfo");
     qmlRegisterType<BlockModel>("nuttyartist.notes", 1, 0, "BlockModel");
 
-    qmlRegisterType<MarkdownHighlighter>("MarkdownHighlighter", 1, 0,
-                                         "MarkdownHighlighter");
-
+    qmlRegisterType<MarkdownHighlighter>("MarkdownHighlighter", 1, 0, "MarkdownHighlighter");
 
     QUrl source("qrc:/qt/qml/EditorMain.qml");
     m_kanbanQuickView.rootContext()->setContextProperty("noteEditorLogic", m_noteEditorLogic);
@@ -1479,9 +1477,10 @@ void MainWindow::setupModelView()
     m_treeView->setModel(m_treeModel);
     m_treeViewLogic = new TreeViewLogic(m_treeView, m_treeModel, m_dbManager, m_listView, this);
 #if QT_VERSION >= QT_VERSION_CHECK(6, 2, 0)
-    m_noteEditorLogic = new NoteEditorLogic(
-            m_textEdit, m_editorDateLabel, m_searchEdit, m_kanbanWidget,
-            static_cast<TagListView *>(ui->tagListView), m_tagPool, m_dbManager, m_blockModel, this);
+    m_noteEditorLogic =
+            new NoteEditorLogic(m_textEdit, m_editorDateLabel, m_searchEdit, m_kanbanWidget,
+                                static_cast<TagListView *>(ui->tagListView), m_tagPool, m_dbManager,
+                                m_blockModel, this);
     m_kanbanQuickView.rootContext()->setContextProperty("noteEditorLogic", m_noteEditorLogic);
 #else
     m_noteEditorLogic = new NoteEditorLogic(m_textEdit, m_editorDateLabel, m_searchEdit,
