@@ -12,7 +12,7 @@ MouseArea {
     property bool isContainingMouse: optionItemMouseArea.containsMouse
     property bool checked: false
     property var themeData: {{thme: "Light"}}
-    property bool enabled: true
+//    property bool isEnabled: true
     property int pointSizeOffset: -4
 
     hoverEnabled: true

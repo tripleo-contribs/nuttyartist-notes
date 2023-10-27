@@ -128,7 +128,7 @@ void NoteEditorLogic::showNotesInEditor(const QVector<NodeData> &notes)
 //         set text and date
 //        bool isTextChanged = content != m_textEdit->toPlainText();
 //        if (isTextChanged) {
-//            m_textEdit->setText(content);
+            m_textEdit->setText(content);
             m_blockModel->loadText(content);
 //        }
 //        m_blockModel->loadText(content);

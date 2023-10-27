@@ -10,7 +10,7 @@ ScrollBar {
     height: parent.availableHeight
     minimumSize: 0.08
     property var themeData: {{theme: "Light"}}
-    property bool isDarkGray: true // Deterimnes wether the scrollbar color in Dark mode should be grayish or darkish
+    property bool isDarkGray: true // Determines wether the scrollbar color in Dark mode should be grayish or darkish
     property bool showBackground: false
 
     background: Rectangle {
@@ -30,8 +30,24 @@ ScrollBar {
         opacity: scrollBarControl.policy === ScrollBar.AlwaysOn || (scrollBarControl.active && scrollBarControl.size < 1.0) ? 0.75 : 0
 
         Behavior on opacity {
+            enabled: opacityDelayTimer.running // Sync the animation's running state with the timer's
             NumberAnimation {
                 duration: 250
+            }
+        }
+
+        Timer {
+            id: opacityDelayTimer
+            interval: 1200
+            repeat: false
+
+            onTriggered: {
+                parent.opacity = scrollBarControl.policy === ScrollBar.AlwaysOn || (scrollBarControl.active && scrollBarControl.size < 1.0) ? 0.75 : 0
+            }
+        }
+        onOpacityChanged: {
+            if (!opacityDelayTimer.running) {
+                opacityDelayTimer.start()
             }
         }
     }
