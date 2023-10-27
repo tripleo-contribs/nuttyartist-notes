@@ -10,7 +10,7 @@ BlockInfo::BlockInfo(QObject *parent)
       m_totalIndentLength(0),
       m_indentLevel(0),
       m_children({}),
-      m_parent(nullptr),
+      m_parent(QSharedPointer<BlockInfo>()),
       m_blockDelimiter(""),
       m_indentedString(""),
       m_metaData({})
@@ -211,12 +211,12 @@ void BlockInfo::setTotalIndentLength(unsigned int newTotalIndentLength)
     emit totalIndentLengthChanged();
 }
 
-QList<BlockInfo *> BlockInfo::children() const
+QList<QSharedPointer<BlockInfo> > BlockInfo::children() const
 {
     return m_children;
 }
 
-void BlockInfo::setChildren(const QList<BlockInfo *> &newChildren)
+void BlockInfo::setChildren(const QList<QSharedPointer<BlockInfo> > &newChildren)
 {
     if (m_children == newChildren)
         return;
@@ -224,7 +224,7 @@ void BlockInfo::setChildren(const QList<BlockInfo *> &newChildren)
     emit childrenChanged();
 }
 
-void BlockInfo::addChild(BlockInfo *newChild)
+void BlockInfo::addChild(QSharedPointer<BlockInfo> &newChild)
 {
     if (!m_children.contains(newChild)) {
         m_children.append(newChild);
@@ -232,7 +232,7 @@ void BlockInfo::addChild(BlockInfo *newChild)
     }
 }
 
-void BlockInfo::removeChild(BlockInfo *child)
+void BlockInfo::removeChild(QSharedPointer<BlockInfo> &child)
 {
     if (m_children.contains(child)) {
         m_children.removeOne(child);
@@ -240,12 +240,12 @@ void BlockInfo::removeChild(BlockInfo *child)
     }
 }
 
-BlockInfo *BlockInfo::parent() const
+QSharedPointer<BlockInfo> BlockInfo::parent() const
 {
     return m_parent;
 }
 
-void BlockInfo::setParent(BlockInfo *newParent)
+void BlockInfo::setParent(QSharedPointer<BlockInfo> &newParent)
 {
     if (m_parent == newParent)
         return;

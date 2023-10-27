@@ -24,7 +24,7 @@ int BlockModel::rowCount(const QModelIndex &parent) const
 QVariant BlockModel::data(const QModelIndex &index, int role) const
 {
     if (index.isValid() && index.row() >= 0 && index.row() < m_blockList.length()) {
-        BlockInfo * blockInfo = m_blockList[index.row()];
+        QSharedPointer<BlockInfo> blockInfo = m_blockList[index.row()];
 
         switch((Role) role) {
         case BlockTextHtmlRole:
@@ -94,7 +94,7 @@ QString BlockModel::markdownToHtml(const QString &markdown) {
 }
 
 // TODO: this function should be in BlockInfo not here
-unsigned int BlockModel::calculateTotalIndentLength(const QString &str, BlockInfo* blockInfo)
+unsigned int BlockModel::calculateTotalIndentLength(const QString &str, QSharedPointer<BlockInfo> &blockInfo)
 {
     unsigned int totalIndentLength = 0;
     QString indentedString = "";
@@ -114,7 +114,7 @@ unsigned int BlockModel::calculateTotalIndentLength(const QString &str, BlockInf
 }
 
 // TODO: this function should be inside BlockInfo, not BlockModel
-void BlockModel::updateBlockText(BlockInfo* blockInfo, const QString &plainText, unsigned int lineStartPos, unsigned int lineEndPos) {
+void BlockModel::updateBlockText(QSharedPointer<BlockInfo> &blockInfo, const QString &plainText, unsigned int lineStartPos, unsigned int lineEndPos) {
     // Plain text
     blockInfo->setTextPlainText(plainText);
 
@@ -141,41 +141,41 @@ void BlockModel::updateBlockText(BlockInfo* blockInfo, const QString &plainText,
     blockInfo->setLineEndPos(lineEndPos);
 }
 
-void BlockModel::determineBlockIndentAndParentChildRelationship(BlockInfo* blockInfo, int positionToStartSearchFrom)
+void BlockModel::determineBlockIndentAndParentChildRelationship(QSharedPointer<BlockInfo> &blockInfo, int positionToStartSearchFrom)
 {
-    qDebug() << "In determineBlockIndentAndParentChildRelationship";
+//    qDebug() << "In determineBlockIndentAndParentChildRelationship";
     if (positionToStartSearchFrom < 1 || positionToStartSearchFrom > m_blockList.length()-1)
         return;
 
     if (blockInfo->totalIndentLength() == 0) {
         if (blockInfo->parent() != nullptr)
             blockInfo->parent()->removeChild(blockInfo);
-        blockInfo->setParent(nullptr);
+//        blockInfo->setParent(nullptr);
         return;
     }
 
-    qDebug() << "here 0";
+//    qDebug() << "here 0";
 
     // We traverse the list backwards to check if this block has a parent
     for (int i = positionToStartSearchFrom; i >= 0; i--) {
-        BlockInfo* previousBlock = m_blockList[i];
-        qDebug() << "previousBlock->totalIndentLength(): " << previousBlock->totalIndentLength();
+        QSharedPointer<BlockInfo> previousBlock = m_blockList[i];
+//        qDebug() << "previousBlock->totalIndentLength(): " << previousBlock->totalIndentLength();
 
        // If previousBlock has a smaller total indent length than the current line/block
        // We assign it has a parent for the current block
         if (previousBlock->totalIndentLength() < blockInfo->totalIndentLength()) {
 
-            qDebug() << "here 1";
+//            qDebug() << "here 1";
 
             // If parent is changing, we remove this block from its children
             if (blockInfo->parent() != nullptr) { //&& blockInfo->parent() != previousBlock) {
                 blockInfo->parent()->removeChild(blockInfo);
-                qDebug() << "here 2";
-                qDebug() << "parent text: " << blockInfo->parent()->textPlainText();
+//                qDebug() << "here 2";
+//                qDebug() << "parent text: " << blockInfo->parent()->textPlainText();
             }
 
             blockInfo->setIndentLevel(previousBlock->indentLevel() + 1);
-            qDebug() << "previousBlock->indentLevel() + 1: " << previousBlock->indentLevel() + 1;
+//            qDebug() << "previousBlock->indentLevel() + 1: " << previousBlock->indentLevel() + 1;
             blockInfo->setParent(previousBlock);
             previousBlock->addChild(blockInfo);
 //            previousBlock->addChild(blockInfo);
@@ -184,10 +184,10 @@ void BlockModel::determineBlockIndentAndParentChildRelationship(BlockInfo* block
     }
 }
 
-void BlockModel::updateBlockUsingPlainText(BlockInfo* blockInfo, unsigned int blockIndex, QString &plainText)
+void BlockModel::updateBlockUsingPlainText(QSharedPointer<BlockInfo> &blockInfo, unsigned int blockIndex, QString &plainText)
 {
-    qDebug() << "In updateBlockUsingPlainText";
-    qDebug() << "plainText: " << plainText;
+//    qDebug() << "In updateBlockUsingPlainText";
+//    qDebug() << "plainText: " << plainText;
     unsigned int lineTotalIndentLength = calculateTotalIndentLength(plainText, blockInfo);
     blockInfo->setTotalIndentLength(lineTotalIndentLength);
     blockInfo->determineBlockType(plainText);
@@ -201,8 +201,8 @@ void BlockModel::updateBlockUsingPlainText(BlockInfo* blockInfo, unsigned int bl
     blockInfo->setIndentLevel(0);
     if (blockInfo->parent() != nullptr) {
         blockInfo->parent()->removeChild(blockInfo);
-        if (lineTotalIndentLength <= 0)
-            blockInfo->setParent(nullptr);
+//        if (lineTotalIndentLength <= 0)
+//            blockInfo->setParent(nullptr);
     }
 //    blockInfo->setParent(nullptr);
     if (lineTotalIndentLength > 0 && m_blockList.length() > 0) {
@@ -224,7 +224,7 @@ void BlockModel::loadText(const QString& text)
 
     unsigned int blockIndex = 0;
     for (auto &line: lines) {
-        BlockInfo *blockInfo = new BlockInfo(this);
+        QSharedPointer<BlockInfo> blockInfo = QSharedPointer<BlockInfo>(new BlockInfo());
         m_blockList << blockInfo;
         updateBlockUsingPlainText(blockInfo, blockIndex, line);
         blockIndex++;
@@ -244,7 +244,7 @@ void BlockModel::clear()
     m_undoStack.clear();
     m_redoStack.clear();
     beginResetModel();
-    qDeleteAll(m_blockList); // TODO: this is extremly slow 2-4x slower than loading. How to optimize this?
+//    qDeleteAll(m_blockList); // TODO: this is extremly slow 2-4x slower than loading. How to optimize this?
     m_blockList.clear();
     endResetModel();
 }
@@ -252,7 +252,7 @@ void BlockModel::clear()
 void BlockModel::updateBlocksLinePositions(unsigned int blockPosition, int delta)
 {
     for (unsigned int i = blockPosition; i < m_blockList.length(); i++) {
-        BlockInfo *blockInfo = m_blockList[i];
+        QSharedPointer<BlockInfo> blockInfo = m_blockList[i];
         qDebug() << "updated block plaintext: " << blockInfo->textPlainText();
         qDebug() << "new lineStartPos: " << blockInfo->lineStartPos() + delta;
         qDebug() << "new lineEndPos: " << blockInfo->lineEndPos() + delta;
@@ -287,7 +287,7 @@ void BlockModel::setTextAtIndex(const int blockIndex, QString qmlHtml, int curso
 {
     emit aboutToChangeText();
 
-    BlockInfo *blockInfo = m_blockList[blockIndex];
+    QSharedPointer<BlockInfo> blockInfo = m_blockList[blockIndex];
 
 
     QString markdown = QmlHtmlToMarkdown(qmlHtml);
@@ -485,14 +485,14 @@ void BlockModel::indentBlocks(QList<int> selectedBlockIndexes)
         // Running on the selected blocks to check for indentation
         int numberOfAlreadyIndentedBlocks = 0;
         for (int i = selectedBlockIndexes[0]; i < selectedBlockIndexes[selectedBlockIndexes.length()-1] + 1; i++) {
-            BlockInfo *blockInfo = m_blockList[i];
+            QSharedPointer<BlockInfo> blockInfo = m_blockList[i];
             if(blockInfo->isIndentable() && i > 0) {
                 emit aboutToChangeText();
 
                // Traverse the list backwards from current block position to check for a matching parent.
                // If none found (or an empty block encountered), nothing is done.
                 for (int j = i - 1; j >= 0; j--) {
-                    BlockInfo *previousBlock = m_blockList[j];
+                    QSharedPointer<BlockInfo> previousBlock = m_blockList[j];
 
                     if (previousBlock->indentLevel() < blockInfo->indentLevel()) {
                         break;
@@ -550,7 +550,7 @@ void BlockModel::indentBlocks(QList<int> selectedBlockIndexes)
     }
 }
 
-void BlockModel::unindentBlock(unsigned int blockIndex, BlockInfo * blockInfo, bool isSecondRun, int numberOfAlreadyUnindentedBlocks)
+void BlockModel::unindentBlock(unsigned int blockIndex, QSharedPointer<BlockInfo> &blockInfo, bool isSecondRun, int numberOfAlreadyUnindentedBlocks)
 {
     qDebug() << "unindentBlock!";
     emit aboutToChangeText();
@@ -588,12 +588,12 @@ void BlockModel::unindentBlock(unsigned int blockIndex, BlockInfo * blockInfo, b
 void BlockModel::unindentBlocks(QList<int> selectedBlockIndexes)
 {
     qDebug() << "Unindent: " << selectedBlockIndexes;
-    QList<BlockInfo*> unindentedAlready {};
+    QList<QSharedPointer<BlockInfo>> unindentedAlready {};
     std::sort(selectedBlockIndexes.begin(), selectedBlockIndexes.end());
 
     if (selectedBlockIndexes.length() > 0) {
         for (int i = selectedBlockIndexes[0]; i < selectedBlockIndexes[selectedBlockIndexes.length()-1] + 1; i++) {
-            BlockInfo *blockInfo = m_blockList[i];
+            QSharedPointer<BlockInfo> blockInfo = m_blockList[i];
             if(blockInfo->isIndentable() && i > 0) {
                 qDebug() << "1";
                 qDebug() << blockInfo->indentLevel();
@@ -606,7 +606,7 @@ void BlockModel::unindentBlocks(QList<int> selectedBlockIndexes)
                     int j = i + 1;
                     while (j < m_blockList.length()) {
                         qDebug() << "3";
-                        BlockInfo *nextBlock = m_blockList[j];
+                        QSharedPointer<BlockInfo> nextBlock = m_blockList[j];
 
                         if (nextBlock->indentLevel() <=  originalBlockIndentLevel){
                             break;
@@ -636,8 +636,8 @@ void BlockModel::unindentBlocks(QList<int> selectedBlockIndexes)
 void BlockModel::moveBlockTextToBlockAbove(int blockIndex)
 {
     if (blockIndex > 0) {
-        BlockInfo *blockInfo = m_blockList[blockIndex];
-        BlockInfo *previousBlock = m_blockList[blockIndex - 1];
+        QSharedPointer<BlockInfo> blockInfo = m_blockList[blockIndex];
+        QSharedPointer<BlockInfo> previousBlock = m_blockList[blockIndex - 1];
 
         emit aboutToChangeText();
 
@@ -661,7 +661,7 @@ void BlockModel::moveBlockTextToBlockAbove(int blockIndex)
 
 void BlockModel::backSpacePressedAtStartOfBlock(int blockIndex)
 {
-    BlockInfo *blockInfo = m_blockList[blockIndex];
+    QSharedPointer<BlockInfo> blockInfo = m_blockList[blockIndex];
 
     if (blockInfo->blockType() != BlockInfo::BlockType::RegularText && !blockInfo->blockDelimiter().isEmpty()) {
         // if this block has a delimiter -> we remove it
@@ -716,15 +716,15 @@ void BlockModel::backSpacePressedAtStartOfBlock(int blockIndex)
         m_blockList.removeAt(blockIndex);
         if (blockInfo->parent() != nullptr) {
             blockInfo->parent()->removeChild(blockInfo);
-            blockInfo->setParent(nullptr);
+//            blockInfo->setParent(nullptr);
         }
         for (auto &child : blockInfo->children()) {
             if (child->parent() != nullptr)
                 child->parent()->removeChild(child);
-            child->setParent(nullptr);
+//            child->setParent(nullptr);
             determineBlockIndentAndParentChildRelationship(child, blockIndex - 1);
         }
-        blockInfo->deleteLater();
+//        blockInfo->deleteLater();
         endRemoveRows();
     }
 }
@@ -734,8 +734,9 @@ void BlockModel::insertNewBlock(int blockIndex, QString qmlHtml, bool shouldMerg
     qDebug() << "In insertNewBlock";
     emit aboutToChangeText();
     beginInsertRows(QModelIndex(), blockIndex + 1, blockIndex + 1);
-    BlockInfo *previousBlockInfo = m_blockList[blockIndex];
-    BlockInfo *newBlockInfo = new BlockInfo(this);
+    QSharedPointer<BlockInfo> previousBlockInfo = m_blockList[blockIndex];
+//    BlockInfo *newBlockInfo = new BlockInfo(this);
+    QSharedPointer<BlockInfo> newBlockInfo = QSharedPointer<BlockInfo>(new BlockInfo());
 
     newBlockInfo->setTotalIndentLength(previousBlockInfo->totalIndentLength());
     newBlockInfo->setIndentedString(previousBlockInfo->indentedString());
@@ -798,7 +799,7 @@ void BlockModel::insertNewBlock(int blockIndex, QString qmlHtml, bool shouldMerg
     qDebug() << "newBlockInfo->lineEndPos(): " << newBlockInfo->lineEndPos();
 
     newBlockInfo->setIndentLevel(previousBlockInfo->indentLevel());
-    newBlockInfo->setParent(nullptr);
+//    newBlockInfo->setParent(nullptr);
     if (newBlockInfo->totalIndentLength() > 0 && m_blockList.length() > 0) {
         qDebug() << "DDDDDDDDDDDDD";
         determineBlockIndentAndParentChildRelationship(newBlockInfo, blockIndex);
@@ -816,14 +817,14 @@ BlockInfo::BlockType BlockModel::getBlockType(int blockIndex)
     if (blockIndex < 0 || blockIndex > m_blockList.length() - 1)
         return BlockInfo::BlockType::RegularText;
 
-    BlockInfo *blockInfo = m_blockList[blockIndex];
+    QSharedPointer<BlockInfo> blockInfo = m_blockList[blockIndex];
     return blockInfo->blockType();
 }
 
 void BlockModel::toggleTaskAtIndex(int blockIndex)
 {
     emit aboutToChangeText();
-    BlockInfo *blockInfo = m_blockList[blockIndex];
+    QSharedPointer<BlockInfo> blockInfo = m_blockList[blockIndex];
     if (blockInfo->blockType() != BlockInfo::BlockType::Todo)
         return;
 
@@ -880,9 +881,9 @@ void BlockModel::editBlocks(QList<int> selectedBlockIndexes, int firstBlockSelec
     qDebug() << "firstBlockSelectionStart: " << firstBlockSelectionStart;
     qDebug() << "lastBlockSelectionEnd: " << lastBlockSelectionEnd;
 
-    BlockInfo *firstBlock = m_blockList[selectedBlockIndexes[0]];
+    QSharedPointer<BlockInfo> firstBlock = m_blockList[selectedBlockIndexes[0]];
     int lastBlockIndex = selectedBlockIndexes[selectedBlockIndexes.length()-1];
-    BlockInfo *lastBlock = m_blockList[lastBlockIndex];
+    QSharedPointer<BlockInfo> lastBlock = m_blockList[lastBlockIndex];
     QString savedTextFirstBlock = firstBlock->textPlainText().mid(firstBlock->indentedString().length() + firstBlock->blockDelimiter().length());
     qDebug() << "savedTextFirstBlock 1: " << savedTextFirstBlock;
     savedTextFirstBlock = firstBlock->indentedString() + firstBlock->blockDelimiter() + savedTextFirstBlock.mid(0, firstBlockSelectionStart);
@@ -935,22 +936,22 @@ void BlockModel::editBlocks(QList<int> selectedBlockIndexes, int firstBlockSelec
     qDebug() << "end remove: " << selectedBlockIndexes[selectedBlockIndexes.length()-1];
     for (int i = selectedBlockIndexes[1]; i <= selectedBlockIndexes[selectedBlockIndexes.length()-1]; i++) {
         qDebug() << "i: " << i;
-        BlockInfo *blockToRemove = m_blockList[i];
+        QSharedPointer<BlockInfo> blockToRemove = m_blockList[i];
         for (auto &child : blockToRemove->children()) {
             if (child->parent() != nullptr)
                 child->parent()->removeChild(child);
-            child->setParent(nullptr);
+//            child->setParent(nullptr);
         }
         if (blockToRemove->parent() != nullptr)
             blockToRemove->parent()->removeChild(blockToRemove);
-        blockToRemove->deleteLater();
+//        blockToRemove->deleteLater();
     }
     m_blockList.remove(selectedBlockIndexes[1], selectedBlockIndexes.length()-1);
     endRemoveRows();
 
     // Redetermine child parent relationship for all blocks with indent level higher then the lowest indent level found
     for (int i = selectedBlockIndexes[0] + 1; i < m_blockList.length(); i++) {
-        BlockInfo *blockInfo = m_blockList[i];
+        QSharedPointer<BlockInfo> blockInfo = m_blockList[i];
 
         // We stop if we reach a block with an indent level equal/smaller than minIndentLevel
         if (blockInfo->indentLevel() <= minIndentLevel)
@@ -982,7 +983,7 @@ void BlockModel::undo()
             if (singleAction.actionType == ActionType::Modify) {
                 qDebug() << "In undo Modify";
                 unsigned int modifiedBlockIndex = singleAction.blockStartIndex;
-                BlockInfo *blockInfo = m_blockList[modifiedBlockIndex];
+                QSharedPointer<BlockInfo> blockInfo = m_blockList[modifiedBlockIndex];
                 updateBlockUsingPlainText(blockInfo, blockInfo->lineStartPos(), singleAction.oldPlainText);
                 updateSourceTextBetweenLines(singleAction.blockStartIndex, singleAction.blockEndIndex, singleAction.oldPlainText, false);
 
@@ -1012,7 +1013,8 @@ void BlockModel::undo()
                 for (auto &line: lines) {
                     int blockIndex = singleAction.blockStartIndex + index;
                     qDebug() << "blockIndex: " << blockIndex;
-                    BlockInfo *blockInfo = new BlockInfo(this);
+//                    BlockInfo *blockInfo = new BlockInfo(this);
+                    QSharedPointer<BlockInfo> blockInfo = QSharedPointer<BlockInfo>(new BlockInfo());
                     m_blockList.insert(blockIndex, blockInfo);
                     updateBlockUsingPlainText(blockInfo, blockIndex, line);
                     qDebug() << "blockStartLinePos:" << blockInfo->lineStartPos();
@@ -1025,7 +1027,7 @@ void BlockModel::undo()
             } else if (singleAction.actionType == ActionType::Insert) {
                 qDebug() << "In undo Insert";
                 int blockIndex = singleAction.blockStartIndex;
-                BlockInfo *blockInfo = m_blockList[blockIndex];
+                QSharedPointer<BlockInfo> blockInfo = m_blockList[blockIndex];
                 beginRemoveRows(QModelIndex(), blockIndex, blockIndex);
                 updateSourceTextBetweenLines(blockInfo->lineStartPos(),
                                              blockInfo->lineEndPos(),
@@ -1038,11 +1040,11 @@ void BlockModel::undo()
                 for (auto &child : blockInfo->children()) {
                     if (child->parent() != nullptr)
                         child->parent()->removeChild(child);
-                    child->setParent(nullptr);
+//                    child->setParent(nullptr);
                     determineBlockIndentAndParentChildRelationship(child, blockIndex - 1    );
                 }
                 m_blockList.removeAt(blockIndex);
-                blockInfo->deleteLater();
+//                blockInfo->deleteLater();
                 endRemoveRows();
                 updateBlocksLinePositions(blockIndex, -1);
                 emit blockToFocusOnChanged(blockIndex - 1);
@@ -1068,7 +1070,7 @@ void BlockModel::redo()
             if (singleAction.actionType == ActionType::Modify) {
                 qDebug() << "In redo Modify";
                 unsigned int modifiedBlockIndex = singleAction.blockStartIndex;
-                BlockInfo *blockInfo = m_blockList[modifiedBlockIndex];
+                QSharedPointer<BlockInfo> blockInfo = m_blockList[modifiedBlockIndex];
                 updateBlockUsingPlainText(blockInfo, blockInfo->lineStartPos(), singleAction.newPlainText);
                 updateSourceTextBetweenLines(singleAction.blockStartIndex, singleAction.blockEndIndex, singleAction.newPlainText, false);
 
@@ -1085,14 +1087,14 @@ void BlockModel::redo()
                                              OneCharOperation::NoOneCharOperation,
                                              false);
                 for (unsigned int blockIndex = singleAction.blockStartIndex; blockIndex <= singleAction.blockEndIndex; blockIndex++) {
-                    BlockInfo *blockInfo = m_blockList[blockIndex];
+                    QSharedPointer<BlockInfo> blockInfo = m_blockList[blockIndex];
                     for (auto &child : blockInfo->children()) {
                         if (child->parent() != nullptr)
                             child->parent()->removeChild(child);
-                        child->setParent(nullptr);
+//                        child->setParent(nullptr);
                         determineBlockIndentAndParentChildRelationship(child, blockIndex - 1);
                     }
-                    blockInfo->deleteLater();
+//                    blockInfo->deleteLater();
                 }
                 beginRemoveRows(QModelIndex(), singleAction.blockStartIndex, singleAction.blockEndIndex);
                 m_blockList.remove(singleAction.blockStartIndex, singleAction.blockEndIndex - singleAction.blockStartIndex + 1);
@@ -1111,7 +1113,8 @@ void BlockModel::redo()
                                              OneCharOperation::NoOneCharOperation,
                                              false);
                 beginInsertRows(QModelIndex(), blockIndex, blockIndex);
-                BlockInfo *blockInfo = new BlockInfo(this);
+//                BlockInfo *blockInfo = new BlockInfo(this);
+                QSharedPointer<BlockInfo> blockInfo = QSharedPointer<BlockInfo>(new BlockInfo());
                 m_blockList.insert(blockIndex, blockInfo);
                 updateBlockUsingPlainText(blockInfo, blockIndex, singleAction.newPlainText);
                 endInsertRows();

@@ -8,6 +8,7 @@
 #include <QTextBlock>
 #include <QTextCursor>
 #include <QElapsedTimer>
+#include <QSharedPointer>
 
 #include "blockinfo.h"
 
@@ -78,7 +79,7 @@ public slots:
     void moveBlockTextToBlockAbove(int blockIndex);
     void backSpacePressedAtStartOfBlock(int blockIndex);
     void indentBlocks(QList<int> selectedBlockIndexes);
-    void unindentBlock(unsigned int blockIndex, BlockInfo *blockInfo, bool isSecondRun, int numberOfAlreadyUnindentedBlocks);
+    void unindentBlock(unsigned int blockIndex, QSharedPointer<BlockInfo> &blockInfo, bool isSecondRun, int numberOfAlreadyUnindentedBlocks);
     void unindentBlocks(QList<int> selectedBlockIndexes);
     void setTextAtIndex(const int blockIndex, QString qmlHtml, int cursorPositionQML=0);
     void loadText(const QString& text);
@@ -94,7 +95,7 @@ signals:
 
 private:
     QTextDocument m_sourceDocument;
-    QList<BlockInfo*> m_blockList;
+    QList<QSharedPointer<BlockInfo>> m_blockList;
     QString m_htmlMetaDataStart;
     QString m_htmlMetaDataEnd;
     unsigned int m_tabLengthInSpaces;
@@ -103,10 +104,10 @@ private:
     QList<CompoundAction> m_undoStack;
     QList<CompoundAction> m_redoStack;
 
-    void updateBlockUsingPlainText(BlockInfo* blockInfo, unsigned int blockIndex, QString &plainText);
+    void updateBlockUsingPlainText(QSharedPointer<BlockInfo> &blockInfo, unsigned int blockIndex, QString &plainText);
     QString QmlHtmlToMarkdown(QString &qmlHtml);
-    void determineBlockIndentAndParentChildRelationship(BlockInfo* blockInfo, int positionToStartSearchFrom);
-    void updateBlockText(BlockInfo* blockInfo, const QString &plainText, unsigned int lineStartPos, unsigned int lineEndPos);
+    void determineBlockIndentAndParentChildRelationship(QSharedPointer<BlockInfo> &blockInfo, int positionToStartSearchFrom);
+    void updateBlockText(QSharedPointer<BlockInfo> &blockInfo, const QString &plainText, unsigned int lineStartPos, unsigned int lineEndPos);
     void updateBlocksLinePositions(unsigned int blockPosition, int delta);
     void updateSourceTextBetweenLines(int startLinePos,
                                       int endLinePos,
@@ -116,7 +117,7 @@ private:
                                       ActionType actionType=ActionType::Modify,
                                       OneCharOperation oneCharoperation=OneCharOperation::NoOneCharOperation,
                                       bool isForceMergeLastAction=false);
-    unsigned int calculateTotalIndentLength(const QString &str, BlockInfo *blockInfo);
+    unsigned int calculateTotalIndentLength(const QString &str, QSharedPointer<BlockInfo> &blockInfo);
     double estimateMemoryUsageInKB(const QList<CompoundAction> &undoStack);
 };
 

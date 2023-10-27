@@ -6,6 +6,7 @@
 #include <qqml.h>
 #include <QQmlEngine>
 #include <QJsonObject>
+#include <QSharedPointer>
 
 class BlockInfo : public QObject
 {
@@ -18,8 +19,8 @@ class BlockInfo : public QObject
     Q_PROPERTY(unsigned int lineStartPos READ lineStartPos WRITE setLineStartPos NOTIFY lineStartPosChanged)
     Q_PROPERTY(unsigned int lineEndPos READ lineEndPos WRITE setLineEndPos NOTIFY lineEndPosChanged)
     Q_PROPERTY(unsigned int totalIndentLength READ totalIndentLength WRITE setTotalIndentLength NOTIFY totalIndentLengthChanged)
-    Q_PROPERTY(QList<BlockInfo *> children READ children WRITE setChildren NOTIFY childrenChanged)
-    Q_PROPERTY(BlockInfo *parent READ parent WRITE setParent NOTIFY parentChanged)
+    Q_PROPERTY(QList<QSharedPointer<BlockInfo >> children READ children WRITE setChildren NOTIFY childrenChanged)
+    Q_PROPERTY(QSharedPointer<BlockInfo> parent READ parent WRITE setParent NOTIFY parentChanged)
     Q_PROPERTY(unsigned int indentLevel READ indentLevel WRITE setIndentLevel NOTIFY indentLevelChanged)
     Q_PROPERTY(QString blockDelimiter READ blockDelimiter WRITE setBlockDelimiter NOTIFY blockDelimiterChanged)
     Q_PROPERTY(QString indentedString READ indentedString WRITE setIndentedString NOTIFY indentedStringChanged)
@@ -60,13 +61,13 @@ public:
     unsigned int totalIndentLength() const;
     void setTotalIndentLength(unsigned int newTotalIndentLength);
 
-    QList<BlockInfo *> children() const;
-    void setChildren(const QList<BlockInfo *> &newChildren);
-    void addChild(BlockInfo *newChild);
-    void removeChild(BlockInfo* child);
+    QList<QSharedPointer<BlockInfo>> children() const;
+    void setChildren(const QList<QSharedPointer<BlockInfo >> &newChildren);
+    void addChild(QSharedPointer<BlockInfo> &newChild);
+    void removeChild(QSharedPointer<BlockInfo> &child);
 
-    BlockInfo *parent() const;
-    void setParent(BlockInfo *newParent);
+    QSharedPointer<BlockInfo> parent() const;
+    void setParent(QSharedPointer<BlockInfo> &newParent);
 
     unsigned int indentLevel() const;
     void setIndentLevel(unsigned int newIndentLevel);
@@ -109,8 +110,8 @@ private:
     unsigned int m_lineEndPos;
     unsigned int m_totalIndentLength;
     unsigned int m_indentLevel;
-    QList<BlockInfo*> m_children;
-    BlockInfo* m_parent;
+    QList<QSharedPointer<BlockInfo>> m_children;
+    QSharedPointer<BlockInfo> m_parent;
     QString m_blockDelimiter;
     QString m_indentedString;
     QJsonObject m_metaData;
