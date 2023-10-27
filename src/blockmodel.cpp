@@ -200,9 +200,8 @@ void BlockModel::updateBlockUsingPlainText(BlockInfo* blockInfo, unsigned int bl
                     lastPos + 1);
     blockInfo->setIndentLevel(0);
     if (blockInfo->parent() != nullptr) {
-        if (!blockInfo->parent()->children().isEmpty() && blockInfo->parent()->children().contains(blockInfo))
-            blockInfo->parent()->removeChild(blockInfo);
-        if (lineTotalIndentLength > 0)
+        blockInfo->parent()->removeChild(blockInfo);
+        if (lineTotalIndentLength <= 0)
             blockInfo->setParent(nullptr);
     }
 //    blockInfo->setParent(nullptr);
@@ -717,10 +716,13 @@ void BlockModel::backSpacePressedAtStartOfBlock(int blockIndex)
         m_blockList.removeAt(blockIndex);
         if (blockInfo->parent() != nullptr) {
             blockInfo->parent()->removeChild(blockInfo);
+            blockInfo->setParent(nullptr);
         }
         for (auto &child : blockInfo->children()) {
+            if (child->parent() != nullptr)
+                child->parent()->removeChild(child);
             child->setParent(nullptr);
-            determineBlockIndentAndParentChildRelationship(child, blockIndex - 1    );
+            determineBlockIndentAndParentChildRelationship(child, blockIndex - 1);
         }
         blockInfo->deleteLater();
         endRemoveRows();
@@ -934,8 +936,11 @@ void BlockModel::editBlocks(QList<int> selectedBlockIndexes, int firstBlockSelec
     for (int i = selectedBlockIndexes[1]; i <= selectedBlockIndexes[selectedBlockIndexes.length()-1]; i++) {
         qDebug() << "i: " << i;
         BlockInfo *blockToRemove = m_blockList[i];
-        for (auto &child : blockToRemove->children())
+        for (auto &child : blockToRemove->children()) {
+            if (child->parent() != nullptr)
+                child->parent()->removeChild(child);
             child->setParent(nullptr);
+        }
         if (blockToRemove->parent() != nullptr)
             blockToRemove->parent()->removeChild(blockToRemove);
         blockToRemove->deleteLater();
@@ -1031,6 +1036,8 @@ void BlockModel::undo()
                                              OneCharOperation::NoOneCharOperation,
                                              false);
                 for (auto &child : blockInfo->children()) {
+                    if (child->parent() != nullptr)
+                        child->parent()->removeChild(child);
                     child->setParent(nullptr);
                     determineBlockIndentAndParentChildRelationship(child, blockIndex - 1    );
                 }
@@ -1080,6 +1087,8 @@ void BlockModel::redo()
                 for (unsigned int blockIndex = singleAction.blockStartIndex; blockIndex <= singleAction.blockEndIndex; blockIndex++) {
                     BlockInfo *blockInfo = m_blockList[blockIndex];
                     for (auto &child : blockInfo->children()) {
+                        if (child->parent() != nullptr)
+                            child->parent()->removeChild(child);
                         child->setParent(nullptr);
                         determineBlockIndentAndParentChildRelationship(child, blockIndex - 1);
                     }
