@@ -78,6 +78,7 @@ public slots:
                     int lastBlockSelectionEnd, int savedPressedChar, bool isPressedCharLower);
     void toggleTaskAtIndex(int blockIndex);
     BlockInfo::BlockType getBlockType(int blockIndex);
+    int getBlockTextLengthWithoutIndentAndDelimiter(int blockIndex);
     void insertNewBlock(int blockIndex, QString plainText,
                         bool shouldMergeWithPreviousAction = false);
     void moveBlockTextToBlockAbove(int blockIndex);

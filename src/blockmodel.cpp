@@ -1144,3 +1144,14 @@ void BlockModel::setVerticalScrollBarPosition(double scrollBarPosition, int item
     m_itemIndexInView = itemIndexInView;
     emit verticalScrollBarPositionChanged(m_verticalScrollBarPosition, m_itemIndexInView);
 }
+
+int BlockModel::getBlockTextLengthWithoutIndentAndDelimiter(int blockIndex) {
+    if (blockIndex < 0 || blockIndex > m_blockList.length() - 1)
+        return 0;
+
+    QSharedPointer<BlockInfo> blockInfo = m_blockList[blockIndex];
+    QString plainText = blockInfo->textPlainText();
+    plainText = plainText.mid(blockInfo->indentedString().length()
+                              + blockInfo->blockDelimiter().length());
+    return plainText.length();
+}

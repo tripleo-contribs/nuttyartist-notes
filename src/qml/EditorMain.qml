@@ -257,6 +257,17 @@ Rectangle {
         }
     }
 
+    function selectAll () {
+        root.selectedBlockIndexes = [];
+        var indexes = Array.from({ length: BlockModel.rowCount() }, (_, i) => i);
+        root.selectedBlockIndexes = root.selectedBlockIndexes.concat(indexes);
+        selectionArea.selStartIndex = 0;
+        selectionArea.selEndIndex = BlockModel.rowCount() - 1;
+        selectionArea.selStartPos = 0;
+        selectionArea.selEndPos = BlockModel.getBlockTextLengthWithoutIndentAndDelimiter(BlockModel.rowCount() - 1); //blockEditorView.itemAtIndex(blockEditorView.count - 1).textEditorPointer.length;
+        selectionArea.selectionChanged();
+    }
+
 //    onSelectedBlockChanged: {
 //        if (root.selectedBlock)
 //            console.log("SELECTED BLOCK CHANGED: ", root.selectedBlock.index, root.selectedBlock.blockTextPlainText);
@@ -1055,6 +1066,12 @@ Rectangle {
                             return;
                         }
 
+                        if (root.isHoldingControl && event.key === Qt.Key_A) {
+                            event.accepted = true;
+                            root.selectAll();
+                            return;
+                        }
+
                         if ((root.isHoldingShift && root.isHoldingControl && event.key === Qt.Key_Z) || (root.isHoldingControl && event.key === Qt.Key_Y)) { // TODO: Why Qt.Key_Redo doesn't work?
                            console.log("REDO QML");
                            event.accepted = true;
@@ -1078,10 +1095,15 @@ Rectangle {
                                 blockToFocusOn(delegate.index + 1);
                                 checkIfToScrollDown();
                             } else if (root.selectedBlockIndexes.length > 1) {
+                                                console.log("IN RIGHT");
                                  root.skipAutomaticCursorChange = true;
                                  let actualEndIndex = Math.max(selectionArea.selStartIndex, selectionArea.selEndIndex);
                                  let blockAtEnd = blockEditorView.itemAtIndex(actualEndIndex);
                                  let actualEndPos = selectionArea.selStartIndex < selectionArea.selEndIndex ? selectionArea.selEndPos : selectionArea.selStartPos;
+                                 if(blockAtEnd === null || (blockAtEnd && (blockEditorView.contentY > blockAtEnd.y ||
+                                             blockEditorView.contentY + blockEditorView.height < root.editorRightLeftPadding + blockAtEnd.y))) {
+                                    blockEditorView.positionViewAtIndex(actualEndIndex, ListView.Center);
+                                 }
                                  // TODO: Why cursor isn't positioned properly at start?
                                  root.lastCursorPos = actualEndPos;
                                  blockToFocusOn(actualEndIndex);
@@ -1097,6 +1119,7 @@ Rectangle {
                                 blockToFocusOn(delegate.index - 1);
                                 checkIfToScrollUp();
                             } else if (root.selectedBlockIndexes.length > 1) {
+                                                console.log("IN LEFT");
                                  root.skipAutomaticCursorChange = true;
                                  let actualStartIndex = Math.min(selectionArea.selStartIndex, selectionArea.selEndIndex);
                                  let blockAtStart = blockEditorView.itemAtIndex(actualStartIndex);
@@ -1104,7 +1127,11 @@ Rectangle {
                                  if (actualStartPos > 0) {
                                      actualStartPos += 1;
                                  }
-                                 // TODO: Why cursor isn't positioned properly at endd
+                                if(blockAtStart === null || (blockAtStart && (blockEditorView.contentY > blockAtStart.y + blockAtStart.height ||
+                                                                              blockEditorView.contentY + blockEditorView.contentHeight < blockAtStart.y))) {
+                                   blockEditorView.positionViewAtIndex(actualStartIndex, ListView.Center);
+                                }
+                                 // TODO: Why cursor isn't positioned properly at end
                                  root.lastCursorPos = actualStartPos;
                                  blockToFocusOn(actualStartIndex);
                             }
@@ -1214,7 +1241,7 @@ Rectangle {
                                 selectionArea.selStartPos = cursorPosition;
                                 [selectionArea.selEndIndex, selectionArea.selEndPos] = [selectionArea.selStartIndex, selectionArea.selStartPos];
                                 selectionArea.selectionChanged();
-                            } else {
+                            } else if (event.key !== Qt.Key_Right && event.key !== Qt.Key_Left) {
                                 textEditor.editingMultipleBlocks(event.key);
                                 event.accepted = true;
                                 return;
