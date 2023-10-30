@@ -217,7 +217,7 @@ Rectangle {
     }
 
     onLastCursorPosChanged: {
-        console.log("lastCursorPos ROOT: ", root.lastCursorPos);
+//        console.log("lastCursorPos ROOT: ", root.lastCursorPos);
     }
 
     function positionViewAtBottomAndSelectLastBlock () {
@@ -944,7 +944,7 @@ Rectangle {
                         if (!root.skipAutomaticCursorChange && !delegate.isPooled && !root.isProgrammaticChange) {
                             root.lastCursorPos = cursorPosition;
                             root.skipAutomaticCursorChange = false;
-                            console.log("lastCursorPos CHANGED 5:", root.lastCursorPos);
+//                            console.log("lastCursorPos CHANGED 5:", root.lastCursorPos);
                         }
                     }
 

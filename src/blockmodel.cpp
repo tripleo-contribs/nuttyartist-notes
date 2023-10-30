@@ -272,17 +272,12 @@ void BlockModel::updateBlocksLinePositions(unsigned int blockPosition, int delta
 {
     for (unsigned int i = blockPosition; i < m_blockList.length(); i++) {
         QSharedPointer<BlockInfo> blockInfo = m_blockList[i];
-        qDebug() << "updated block plaintext: " << blockInfo->textPlainText();
-        qDebug() << "new lineStartPos: " << blockInfo->lineStartPos() + delta;
-        qDebug() << "new lineEndPos: " << blockInfo->lineEndPos() + delta;
+//        qDebug() << "updated block plaintext: " << blockInfo->textPlainText();
+//        qDebug() << "new lineStartPos: " << blockInfo->lineStartPos() + delta;
+//        qDebug() << "new lineEndPos: " << blockInfo->lineEndPos() + delta;
         blockInfo->setLineStartPos(blockInfo->lineStartPos() + delta);
         blockInfo->setLineEndPos(blockInfo->lineEndPos() + delta);
     }
-
-    // Do we need this?
-    //    QModelIndex modelIdxStart = this->index(blockPosition);
-    //    QModelIndex modelIdxEnd = this->index(m_blockList.length()-1);
-    //    emit dataChanged(modelIdxStart, modelIdxEnd, {});
 }
 
 QString BlockModel::QmlHtmlToMarkdown(QString &qmlHtml)
@@ -895,8 +890,14 @@ void BlockModel::editBlocks(QList<int> selectedBlockIndexes, int firstBlockSelec
             + savedTextFirstBlock.mid(0, firstBlockSelectionStart);
     qDebug() << "savedTextFirstBlock 2: " << savedTextFirstBlock;
     qDebug() << "lastBlock->textPlainText: " << lastBlock->textPlainText();
+    qDebug() << "lastBlock->textPlainText length: " << lastBlock->textPlainText().length();
+    int lineBreakCount = lastBlock->textPlainText().count("<br />");
     int lineBreaksLength =
-            lastBlock->textPlainText().count("<br />") * QStringLiteral("<br />").length();
+            (lineBreakCount * QStringLiteral("<br />").length()) - lineBreakCount;
+    qDebug() << "lastBlock->indentedString().length(): " << lastBlock->indentedString().length();
+    qDebug() << "lastBlock->blockDelimiter().length(): " << lastBlock->blockDelimiter().length();
+    qDebug() << "lastBlockSelectionEnd: " << lastBlockSelectionEnd;
+    qDebug() << "lineBreaksLength: " << lineBreaksLength;
     QString savedTextLastBlock = lastBlock->textPlainText().mid(
             lastBlock->indentedString().length() + lastBlock->blockDelimiter().length()
             + lastBlockSelectionEnd + lineBreaksLength);
