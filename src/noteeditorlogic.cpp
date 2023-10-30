@@ -44,6 +44,18 @@ NoteEditorLogic::NoteEditorLogic(CustomDocument *textEdit, QLabel *editorDateLab
 {
     connect(m_blockModel, &BlockModel::textChangeFinished, this,
             &NoteEditorLogic::onBlockModelTextChanged);
+    connect(m_blockModel, &BlockModel::verticalScrollBarPositionChanged, this, [this](double scrollBarPosition, int itemIndexInView) {
+        if (currentEditingNoteId() != SpecialNodeID::InvalidNodeId) {
+                // TODO: Crate seperate `scrollBarPosition` and `itemIndexInView` in NoteData and database
+                m_currentNotes[0].setScrollBarPosition(itemIndexInView);
+                emit updateNoteDataInList(m_currentNotes[0]);
+                m_isContentModified = true;
+                m_autoSaveTimer.start();
+                emit setVisibilityOfFrameRightWidgets(false);
+        } else {
+            qDebug() << "NoteEditorLogic::onTextEditTextChanged() : m_currentNote is not valid";
+        }
+    });
     connect(m_textEdit, &QTextEdit::textChanged, this, &NoteEditorLogic::onTextEditTextChanged);
     connect(this, &NoteEditorLogic::requestCreateUpdateNote, m_dbManager,
             &DBManager::onCreateUpdateRequestedNoteContent, Qt::QueuedConnection);
@@ -130,7 +142,9 @@ void NoteEditorLogic::showNotesInEditor(const QVector<NodeData> &notes)
         //        bool isTextChanged = content != m_textEdit->toPlainText();
         //        if (isTextChanged) {
         m_textEdit->setText(content);
+        m_blockModel->setVerticalScrollBarPosition(0, scrollbarPos);
         m_blockModel->loadText(content);
+
         //        }
         //        m_blockModel->loadText(content);
 

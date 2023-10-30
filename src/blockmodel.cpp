@@ -248,7 +248,10 @@ void BlockModel::loadText(const QString &text)
 
     endInsertRows();
     qDebug() << "Finished loading.";
-    emit loadTextFinished();
+
+    QJsonObject dataToSendToView{ { "itemIndexInView",
+                                    m_itemIndexInView } };
+    emit loadTextFinished(QVariant(dataToSendToView));
 
     qint64 elapsed = timer.elapsed();
     qDebug() << "Time taken:" << elapsed << "ms";
@@ -1130,4 +1133,13 @@ void BlockModel::redo()
         m_redoStack.removeLast();
         emit textChangeFinished();
     }
+}
+
+void BlockModel::setVerticalScrollBarPosition(double scrollBarPosition, int itemIndexInView)
+{
+//    qDebug() << "scrollBarPosition: " << scrollBarPosition;
+//    qDebug() << "itemIndexInView: " << itemIndexInView;
+    m_verticalScrollBarPosition = scrollBarPosition;
+    m_itemIndexInView = itemIndexInView;
+    emit verticalScrollBarPositionChanged(m_verticalScrollBarPosition, m_itemIndexInView);
 }

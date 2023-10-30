@@ -71,6 +71,7 @@ public:
     QString markdownToHtml(const QString &markdown);
 
 public slots:
+    void setVerticalScrollBarPosition(double scrollBarPosition, int itemIndexInView);
     void undo();
     void redo();
     void editBlocks(QList<int> selectedBlockIndexes, int firstBlockSelectionStart,
@@ -90,13 +91,14 @@ public slots:
     void clear();
 
 signals:
+    void verticalScrollBarPositionChanged(double scrollBarPosition, int itemIndexInView);
     void restoreCursorPosition(int cursorPosition);
     void restoreSelection(int blockStartIndex, int blockEndIndex, int firstBlockSelectionStart, int lastBlockSelectionEnd);
     void blockToFocusOnChanged(int blockIndex);
     void aboutToChangeText();
     void textChangeFinished();
     void aboutToLoadText();
-    void loadTextFinished();
+    void loadTextFinished(QVariant data);
     void newBlockCreated(int blockIndex);
 
 private:
@@ -109,6 +111,8 @@ private:
     int m_blockIndexToFocusOn;
     QList<CompoundAction> m_undoStack;
     QList<CompoundAction> m_redoStack;
+    double m_verticalScrollBarPosition;
+    int m_itemIndexInView;
 
     void updateBlockUsingPlainText(QSharedPointer<BlockInfo> &blockInfo, unsigned int blockIndex,
                                    QString &plainText);

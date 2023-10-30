@@ -145,8 +145,9 @@ Rectangle {
             root.isProgrammaticChange = true;
         }
 
-        function onLoadTextFinished() {
+        function onLoadTextFinished(data) {
             root.isProgrammaticChange = false;
+            blockEditorView.positionViewAtIndex(data.itemIndexInView, ListView.Beginning);
         }
 
         function onNewBlockCreated(blockIndex : int) {
@@ -178,6 +179,8 @@ Rectangle {
             console.log("firstBlockSelectionStart:", firstBlockSelectionStart);
             console.log("lastBlockSelectionEnd:", lastBlockSelectionEnd);
         }
+
+
     }
 
     function blockToFocusOn(blockIndex : int) {
@@ -1438,20 +1441,20 @@ Rectangle {
                         var actualStartPos = selectionArea.selStartIndex < selectionArea.selEndIndex ? selectionArea.selStartPos : selectionArea.selEndPos;
                         var actualEndPos = selectionArea.selStartIndex < selectionArea.selEndIndex ? selectionArea.selEndPos : selectionArea.selStartPos;
 
-                        console.log("delegate index:", delegate.index);
-                        console.log("actualStartIndex: ", actualStartIndex);
-                        console.log("actualEndIndex: ", actualEndIndex);
+//                        console.log("delegate index:", delegate.index);
+//                        console.log("actualStartIndex: ", actualStartIndex);
+//                        console.log("actualEndIndex: ", actualEndIndex);
 
                         if (delegate.index < actualStartIndex || delegate.index > actualEndIndex) {
                             textEditor.deselect();
                             let delegateIndexInSelectedIndexes = root.selectedBlockIndexes.indexOf(delegate.index);
                             if (delegateIndexInSelectedIndexes !== -1) {
-                                console.log("root.selectedBlockIndexes: 7", root.selectedBlockIndexes);
+//                                console.log("root.selectedBlockIndexes: 7", root.selectedBlockIndexes);
                                 root.selectedBlockIndexes.splice(delegateIndexInSelectedIndexes, 1);
-                                console.log("root.selectedBlockIndexes: 7.2", root.selectedBlockIndexes);
-                                console.log("delegate.index: ", delegate.index)
-                                console.log("actualStartIndex: ", actualStartIndex);
-                                console.log("actualEndIndex: ", actualEndIndex);
+//                                console.log("root.selectedBlockIndexes: 7.2", root.selectedBlockIndexes);
+//                                console.log("delegate.index: ", delegate.index)
+//                                console.log("actualStartIndex: ", actualStartIndex);
+//                                console.log("actualEndIndex: ", actualEndIndex);
                             }
                         } else if (delegate.index > actualStartIndex && delegate.index < actualEndIndex) {
                             textEditor.selectAll();
@@ -1513,12 +1516,26 @@ Rectangle {
             themeData: root.themeData
             isDarkGray: true
             showBackground: true
+
+            onPositionChanged: {
+                saveScrollPositionTimer.restart();
+            }
+        }
+
+        Timer {
+            id: saveScrollPositionTimer
+            interval: 500
+
+            onTriggered: {
+                BlockModel.setVerticalScrollBarPosition(verticalScrollBar.position, blockEditorView.indexAt(0, blockEditorView.contentY));
+            }
         }
 
         function indexAtRelative(x, y) {
             return indexAt(x + contentX, y + contentY)
         }
     }
+
 
     MouseArea {
         id: selectionArea
