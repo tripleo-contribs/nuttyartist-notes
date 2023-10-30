@@ -126,7 +126,6 @@ Rectangle {
     property bool canUpdateCursorPos: true
     property rect lastCursorRect: Qt.rect(0,0,0,0)
     property string currentHoveredLink: ""
-    property bool skipAutomaticCursorChange: false
 
     Connections {
         target: BlockModel
@@ -952,9 +951,8 @@ Rectangle {
                     onCursorPositionChanged: {
                         root.cursorX = root.mapFromItem(textEditor, textEditor.positionToRectangle(cursorPosition)).x;
 
-                        if (!root.skipAutomaticCursorChange && !delegate.isPooled && !root.isProgrammaticChange) {
+                        if (!delegate.isPooled && !root.isProgrammaticChange) {
                             root.lastCursorPos = cursorPosition;
-                            root.skipAutomaticCursorChange = false;
 //                            console.log("lastCursorPos CHANGED 5:", root.lastCursorPos);
                         }
                     }
@@ -1096,7 +1094,6 @@ Rectangle {
                                 checkIfToScrollDown();
                             } else if (root.selectedBlockIndexes.length > 1) {
                                                 console.log("IN RIGHT");
-                                 root.skipAutomaticCursorChange = true;
                                  let actualEndIndex = Math.max(selectionArea.selStartIndex, selectionArea.selEndIndex);
                                  let blockAtEnd = blockEditorView.itemAtIndex(actualEndIndex);
                                  let actualEndPos = selectionArea.selStartIndex < selectionArea.selEndIndex ? selectionArea.selEndPos : selectionArea.selStartPos;
@@ -1120,7 +1117,6 @@ Rectangle {
                                 checkIfToScrollUp();
                             } else if (root.selectedBlockIndexes.length > 1) {
                                                 console.log("IN LEFT");
-                                 root.skipAutomaticCursorChange = true;
                                  let actualStartIndex = Math.min(selectionArea.selStartIndex, selectionArea.selEndIndex);
                                  let blockAtStart = blockEditorView.itemAtIndex(actualStartIndex);
                                  let actualStartPos = selectionArea.selStartIndex < selectionArea.selEndIndex ? selectionArea.selStartPos : selectionArea.selEndPos;
