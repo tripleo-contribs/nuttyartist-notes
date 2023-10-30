@@ -318,23 +318,25 @@ void BlockModel::setTextAtIndex(const int blockIndex, QString qmlHtml, int curso
         emit textChangeFinished();
         return;
     }
+
+    qDebug() << "cursorPositionQML: " << cursorPositionQML;
     //    qDebug() << "Changing!";
     //    qDebug() << "markdown 3: " << markdown;
 
-    int indentAndDelimiterLength =
-            blockInfo->indentedString().length() + blockInfo->blockDelimiter().length();
-    int cursorPosition = cursorPositionQML + indentAndDelimiterLength;
+//    int indentAndDelimiterLength =
+//            blockInfo->indentedString().length() + blockInfo->blockDelimiter().length();
+//    int cursorPosition = cursorPositionQML + indentAndDelimiterLength;
     if (abs(blockInfo->textPlainText().length() - markdown.length()) == 1) {
         // one char operation
         OneCharOperation oneCharOperation = blockInfo->textPlainText().length() > markdown.length()
                 ? oneCharOperation = OneCharOperation::CharDelete
                 : oneCharOperation = OneCharOperation::CharInsert;
         updateSourceTextBetweenLines(blockInfo->lineStartPos(), blockInfo->lineEndPos(), markdown,
-                                     true, cursorPosition, ActionType::Modify, oneCharOperation);
+                                     true, cursorPositionQML, ActionType::Modify, oneCharOperation);
     } else {
         // not one char operation
         updateSourceTextBetweenLines(blockInfo->lineStartPos(), blockInfo->lineEndPos(), markdown,
-                                     true, cursorPosition, ActionType::Modify,
+                                     true, cursorPositionQML, ActionType::Modify,
                                      OneCharOperation::NoOneCharOperation);
     }
 
@@ -358,7 +360,9 @@ void BlockModel::updateSourceTextBetweenLines(int startLinePos, int endLinePos,
                                               const QString &newText, bool shouldCreateUndo,
                                               int cursorPosition, ActionType actionType,
                                               OneCharOperation oneCharoperation,
-                                              bool isForceMergeLastAction)
+                                              bool isForceMergeLastAction,
+                                              int firstBlockSelectionStart,
+                                              int lastBlockSelectionEnd)
 {
     //    qDebug() << "startLinePos: " << startLinePos;
     //    qDebug() << "endLinePos: " << endLinePos;
@@ -395,6 +399,11 @@ void BlockModel::updateSourceTextBetweenLines(int startLinePos, int endLinePos,
                     }
                 }
             }
+        }
+
+        if (actionType == ActionType::Remove) {
+            singleAction.firstBlockSelectionStart = firstBlockSelectionStart;
+            singleAction.lastBlockSelectionEnd = lastBlockSelectionEnd;
         }
     }
 
@@ -905,7 +914,8 @@ void BlockModel::editBlocks(QList<int> selectedBlockIndexes, int firstBlockSelec
 
     updateSourceTextBetweenLines(
             selectedBlockIndexes[1], selectedBlockIndexes[selectedBlockIndexes.length() - 1], "",
-            true, 0, ActionType::Remove, OneCharOperation::NoOneCharOperation, false);
+            true, 0, ActionType::Remove, OneCharOperation::NoOneCharOperation, false,
+            firstBlockSelectionStart, lastBlockSelectionEnd);
 
     updateSourceTextBetweenLines(firstBlock->lineStartPos(), firstBlock->lineEndPos(),
                                  newFirstBlockPlainText, true, 0, ActionType::Modify,
@@ -968,8 +978,12 @@ void BlockModel::undo()
         qDebug() << "m_undoStack.length: " << m_undoStack.length();
         CompoundAction &lastCompoundAction = m_undoStack.last();
         m_redoStack.push_back(lastCompoundAction);
-
+        SingleAction actionWithSelectionToRestore;
+        bool shouldRestoreSelection = false;
+        int indexSingle = 0;
         for (auto &singleAction : lastCompoundAction.actions) {
+            qDebug() << "indexSingle: " << indexSingle;
+            indexSingle++;
             if (singleAction.actionType == ActionType::Modify) {
                 qDebug() << "In undo Modify";
                 unsigned int modifiedBlockIndex = singleAction.blockStartIndex;
@@ -979,8 +993,7 @@ void BlockModel::undo()
                 updateSourceTextBetweenLines(singleAction.blockStartIndex,
                                              singleAction.blockEndIndex, singleAction.oldPlainText,
                                              false);
-
-                // TODO: maybe wait for updating the model when all the single actions are done?
+                emit restoreCursorPosition(singleAction.lastCursorPosition);
                 qDebug() << "Here 1";
                 QModelIndex modelIdx = this->index(modifiedBlockIndex);
                 qDebug() << "Here 2";
@@ -1015,7 +1028,8 @@ void BlockModel::undo()
                 }
                 endInsertRows();
                 updateBlocksLinePositions(singleAction.blockEndIndex + 1, lines.length());
-                emit blockToFocusOnChanged(singleAction.blockEndIndex);
+                actionWithSelectionToRestore = singleAction;
+                shouldRestoreSelection = true;
             } else if (singleAction.actionType == ActionType::Insert) {
                 qDebug() << "In undo Insert";
                 int blockIndex = singleAction.blockStartIndex;
@@ -1038,10 +1052,14 @@ void BlockModel::undo()
             }
         }
 
+
         qDebug() << "Here 4";
         m_undoStack.removeLast();
         qDebug() << "Here 5";
         emit textChangeFinished();
+        if (shouldRestoreSelection) {
+            emit restoreSelection(actionWithSelectionToRestore.blockStartIndex, actionWithSelectionToRestore.blockEndIndex, actionWithSelectionToRestore.firstBlockSelectionStart, actionWithSelectionToRestore.lastBlockSelectionEnd);
+        }
     }
 }
 
@@ -1063,7 +1081,7 @@ void BlockModel::redo()
                 updateSourceTextBetweenLines(singleAction.blockStartIndex,
                                              singleAction.blockEndIndex, singleAction.newPlainText,
                                              false);
-
+                emit restoreCursorPosition(singleAction.lastCursorPosition);
                 QModelIndex modelIdx = this->index(modifiedBlockIndex);
                 emit dataChanged(modelIdx, modelIdx, {});
             } else if (singleAction.actionType == ActionType::Remove) {

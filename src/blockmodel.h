@@ -33,6 +33,9 @@ struct SingleAction
     QString newPlainText = "";
     OneCharOperation oneCharOperation = OneCharOperation::NoOneCharOperation;
     int lastCursorPosition = 0;
+    int firstSelectedBlockIndex = 0;
+    int firstBlockSelectionStart = 0;
+    int lastBlockSelectionEnd = 0;
 };
 
 struct CompoundAction
@@ -87,6 +90,8 @@ public slots:
     void clear();
 
 signals:
+    void restoreCursorPosition(int cursorPosition);
+    void restoreSelection(int blockStartIndex, int blockEndIndex, int firstBlockSelectionStart, int lastBlockSelectionEnd);
     void blockToFocusOnChanged(int blockIndex);
     void aboutToChangeText();
     void textChangeFinished();
@@ -117,7 +122,9 @@ private:
             int startLinePos, int endLinePos, const QString &newText, bool shouldCreateUndo = true,
             int cursorPosition = 0, ActionType actionType = ActionType::Modify,
             OneCharOperation oneCharoperation = OneCharOperation::NoOneCharOperation,
-            bool isForceMergeLastAction = false);
+            bool isForceMergeLastAction = false,
+            int firstBlockSelectionStart = 0,
+            int lastBlockSelectionEnd = 0);
     unsigned int calculateTotalIndentLength(const QString &str,
                                             QSharedPointer<BlockInfo> &blockInfo);
     double estimateMemoryUsageInKB(const QList<CompoundAction> &undoStack);

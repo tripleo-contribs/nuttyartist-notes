@@ -126,6 +126,7 @@ Rectangle {
     property bool canUpdateCursorPos: true
     property rect lastCursorRect: Qt.rect(0,0,0,0)
     property string currentHoveredLink: ""
+    property bool skipAutomaticCursorChange: false
 
     Connections {
         target: BlockModel
@@ -135,7 +136,9 @@ Rectangle {
         }
 
         function onTextChangeFinished() {
+            console.log("In onTextChangeFinished:", root.lastCursorPos);
             root.isProgrammaticChange = false;
+            root.selectedBlock.textEditorPointer.cursorPosition = root.lastCursorPos;
         }
 
         function onAboutToLoadText() {
@@ -153,6 +156,27 @@ Rectangle {
         function onBlockToFocusOnChanged(blockIndex : int) {
             root.blockIndexToFocusOn = blockIndex;
             root.blockToFocusOn(blockIndex);
+        }
+
+        function onRestoreCursorPosition (cursorPosition : int) {
+            root.lastCursorPos = cursorPosition;
+        }
+
+        function onRestoreSelection(blockStartIndex : int, blockEndIndex : int, firstBlockSelectionStart : int, lastBlockSelectionEnd : int) {
+            blockStartIndex = (blockStartIndex - 1) >= 0 ? (blockStartIndex - 1) : 0; // We get the start of the removel index so we need to decrease it by 1
+            root.selectedBlockIndexes = [];
+            for (var i = blockStartIndex; i <= blockEndIndex; i++) {
+                root.selectedBlockIndexes.push(i);
+            }
+            selectionArea.selStartIndex = blockStartIndex;
+            selectionArea.selEndIndex = blockEndIndex;
+            selectionArea.selStartPos = firstBlockSelectionStart;
+            selectionArea.selEndPos = lastBlockSelectionEnd;
+            selectionArea.selectionChanged();
+            console.log("blockStartIndex:", blockStartIndex);
+            console.log("blockEndIndex:", blockEndIndex);
+            console.log("firstBlockSelectionStart:", firstBlockSelectionStart);
+            console.log("lastBlockSelectionEnd:", lastBlockSelectionEnd);
         }
     }
 
@@ -190,7 +214,7 @@ Rectangle {
     }
 
     onLastCursorPosChanged: {
-//        console.log("lastCursorPos: ", root.lastCursorPos);
+        console.log("lastCursorPos ROOT: ", root.lastCursorPos);
     }
 
     function positionViewAtBottomAndSelectLastBlock () {
@@ -386,6 +410,7 @@ Rectangle {
                                                         } else {
                                                            0
                                                        }
+
             property int spaceBeforeDelimiter: spaceBetweenDelimiterAndText > 0 && delegate.blockType !== BlockInfo.DropCap && delegate.blockType !== BlockInfo.Divider ? 10 : 0
             property var delimiterObject: if (delegate.blockType === BlockInfo.Quote) {
                                                 quoteDelimiter
@@ -543,7 +568,7 @@ Rectangle {
                     blockCreationDelegateAnimation.start();
                     blockCreationTextAnimation.start();
 //                    textEditorPointer.cursorPosition = 0;
-                    textEditorPointer.cursorPosition = textEditor.length;
+                    textEditorPointer.cursorPosition = root.lastCursorPos;
                     textEditorPointer.forceActiveFocus();
                     root.selectedBlock = delegate;
                     console.log("selectedBlock 3: ", delegate.index);
@@ -913,9 +938,10 @@ Rectangle {
                     onCursorPositionChanged: {
                         root.cursorX = root.mapFromItem(textEditor, textEditor.positionToRectangle(cursorPosition)).x;
 
-                        if (!delegate.isPooled && !root.isProgrammaticChange) {
+                        if (!root.skipAutomaticCursorChange && !delegate.isPooled && !root.isProgrammaticChange) {
                             root.lastCursorPos = cursorPosition;
-//                            console.log("lastCursorPos CHANGED 5:", root.lastCursorPos);
+                            root.skipAutomaticCursorChange = false;
+                            console.log("lastCursorPos CHANGED 5:", root.lastCursorPos);
                         }
                     }
 
@@ -1030,31 +1056,54 @@ Rectangle {
                            console.log("REDO QML");
                            event.accepted = true;
                            BlockModel.redo();
+                           if (root.selectedBlockIndexes.length > 0)
+                                blockEditorView.positionViewAtIndex(root.selectedBlockIndexes[0], ListView.Center);
                            return;
                         } else if (!root.isHoldingShift && root.isHoldingControl && event.key === Qt.Key_Z) { // TODO: Why Qt.Key_Undo doesn't work?
                            console.log("UNDO QML");
                            event.accepted = true;
                            BlockModel.undo();
+                           if (root.selectedBlockIndexes.length > 0)
+                                blockEditorView.positionViewAtIndex(root.selectedBlockIndexes[0], ListView.Center);
                            return;
                         }
 
                         if (event.key === Qt.Key_Right) {
-                            if (cursorPosition === textEditor.length && delegate.index + 1 < BlockModel.rowCount()) {
+                            if (root.selectedBlockIndexes.length === 1 && cursorPosition === textEditor.length && delegate.index + 1 < BlockModel.rowCount()) {
                                 root.lastCursorPos = 0;
                                                 console.log("lastCursorPos CHANGED 8:", root.lastCursorPos);
                                 blockToFocusOn(delegate.index + 1);
                                 checkIfToScrollDown();
+                            } else if (root.selectedBlockIndexes.length > 1) {
+                                 root.skipAutomaticCursorChange = true;
+                                 let actualEndIndex = Math.max(selectionArea.selStartIndex, selectionArea.selEndIndex);
+                                 let blockAtEnd = blockEditorView.itemAtIndex(actualEndIndex);
+                                 let actualEndPos = selectionArea.selStartIndex < selectionArea.selEndIndex ? selectionArea.selEndPos : selectionArea.selStartPos;
+                                 // TODO: Why cursor isn't positioned properly at start?
+                                 root.lastCursorPos = actualEndPos;
+                                 blockToFocusOn(actualEndIndex);
                             }
                         }
 
                         if (event.key === Qt.Key_Left) {
-                            if (cursorPosition === 0 && delegate.index > 0) {
+                            if (root.selectedBlockIndexes.length === 1 && cursorPosition === 0 && delegate.index > 0) {
                                 root.lastCursorPos = 0;
                                 let block = blockEditorView.itemAtIndex(delegate.index - 1);
                                 root.lastCursorPos = block.textEditorPointer.length;
                                                 console.log("lastCursorPos CHANGED 9:", root.lastCursorPos);
                                 blockToFocusOn(delegate.index - 1);
                                 checkIfToScrollUp();
+                            } else if (root.selectedBlockIndexes.length > 1) {
+                                 root.skipAutomaticCursorChange = true;
+                                 let actualStartIndex = Math.min(selectionArea.selStartIndex, selectionArea.selEndIndex);
+                                 let blockAtStart = blockEditorView.itemAtIndex(actualStartIndex);
+                                 let actualStartPos = selectionArea.selStartIndex < selectionArea.selEndIndex ? selectionArea.selStartPos : selectionArea.selEndPos;
+                                 if (actualStartPos > 0) {
+                                     actualStartPos += 1;
+                                 }
+                                 // TODO: Why cursor isn't positioned properly at endd
+                                 root.lastCursorPos = actualStartPos;
+                                 blockToFocusOn(actualStartIndex);
                             }
                         }
 
@@ -1067,6 +1116,11 @@ Rectangle {
                             } else {
                                 checkIfToScrollUp();
                                 if (delegate.index > 0) {
+                                    if (root.selectedBlockIndexes.length > 1) {
+                                        let actualStartPos = selectionArea.selStartIndex < selectionArea.selEndIndex ? selectionArea.selStartPos : selectionArea.selEndPos;
+                                        cursorPosition = actualStartPos;
+                                        root.cursorX = root.mapFromItem(textEditor, textEditor.positionToRectangle(cursorPosition)).x;
+                                    }
                                     if (textEditor.positionToRectangle(cursorPosition).y <= textEditor.topPadding) { // TODO: Is this proper way to check if we're on the first line?
                                         if (!root.isCursorMovedVertically) {
                                             root.isCursorMovedVertically = true;
@@ -1097,6 +1151,11 @@ Rectangle {
                             } else {
                                 checkIfToScrollDown();
                                 if (delegate.index + 1 < blockEditorView.count) {
+                                    if (root.selectedBlockIndexes.length > 1) {
+                                        let actualEndPos = selectionArea.selStartIndex < selectionArea.selEndIndex ? selectionArea.selEndPos : selectionArea.selStartPos;
+                                        cursorPosition = actualEndPos;
+                                        root.cursorX = root.mapFromItem(textEditor, textEditor.positionToRectangle(cursorPosition)).x;
+                                    }
                                     if (textEditor.positionToRectangle(cursorPosition).y + textEditor.positionToRectangle(cursorPosition).height > textEditor.height - textEditor.font.pixelSize / 2) {//(textEditor.topPadding*2+textEditor.font.pixelSize)*textEditor.lineCount) { // TODO: Is this proper way to check if we're on the last line?
                                         if (!root.isCursorMovedVertically) {
                                             root.isCursorMovedVertically = true;
@@ -1143,8 +1202,7 @@ Rectangle {
                         }
 
                         if (root.selectedBlockIndexes.length > 1) {
-                            if (event.key === Qt.Key_Right || event.key === Qt.Key_Left ||
-                                event.key === Qt.Key_Up || event.key === Qt.Key_Down) {
+                            if (event.key === Qt.Key_Up || event.key === Qt.Key_Down) {
                                 root.selectedBlockIndexes = [index];
                                 root.selectedBlock = delegate;
                                                 console.log("selectedBlock 6: ", delegate.index);
@@ -1218,15 +1276,22 @@ Rectangle {
                     }
 
                     Keys.onReturnPressed: {
+                        anyKeyPressed();
+                        textEditor.cursorAnimationRunning = false;
+                        root.cursorAnimationRunning = false;
+                        root.isAnyKeyPressed = true;
+
                         if (root.isHoldingControl && delegate.blockType === BlockInfo.Todo) {
                             BlockModel.toggleTaskAtIndex(delegate.index);
                         } else if (!root.isHoldingControl){
-                            root.enableCursorAnimation = false;
                             if (root.selectedBlockIndexes.length === 1) {
                                 if (root.isHoldingShift) {
                                     // soft break
+                                    let savedCursorPositionForUndo = textEditor.cursorPosition;
+                                    root.isProgrammaticChange = true;
                                     textEditor.insert(cursorPosition, "<br />"); // It proved too difficult to do this simple thing in the C++ model due to inconssitencies between the qml and c++ formatting of html/markdown
-                                    BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length), textEditor.cursorPosition);
+                                    root.lastCursorPos = textEditor.cursorPosition;
+                                    BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length), savedCursorPositionForUndo);
                                     checkIfToScrollDown();
                                 } else {
                                     // hard break
@@ -1250,12 +1315,17 @@ Rectangle {
                                                 } else {
                                                     // There's text at the last line, therefore
                                                     // imitate soft break
+                                                    let savedCursorPositionForUndo = textEditor.cursorPosition;
+                                                    root.isProgrammaticChange = true;
                                                     textEditor.insert(cursorPosition, "<br />"); // It proved too difficult to do this simple thing in the C++ model due to inconssitencies between the qml and c++ formatting of html/markdown
-                                                    BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length), textEditor.cursorPosition);
+                                                    root.lastCursorPos = cursorPosition;
+                                                    BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length), savedCursorPositionForUndo);
                                                     checkIfToScrollDown();
                                                 }
+                                            } else if (delegate.blockType === BlockInfo.RegularText && textEditor.length === 0 && delegate.blockIndentLevel > 0){
+                                                // If not a quote block and cursor is at the end but indented, we unindent
+                                                BlockModel.unindentBlocks([delegate.index]);
                                             } else {
-                                                // If not a quote block and cursor is at the end
                                                 // hard break
                                                 console.log("delegate.index 2: ", delegate.index);
                                                 BlockModel.insertNewBlock(delegate.index, "");
@@ -1265,8 +1335,11 @@ Rectangle {
                                     } else {
                                         if (delegate.blockType === BlockInfo.Quote || delegate.blockType === BlockInfo.DropCap) {
                                             // imitate soft break
+                                            let savedCursorPositionForUndo = textEditor.cursorPosition;
+                                            root.isProgrammaticChange = true;
                                             textEditor.insert(cursorPosition, "<br />"); // It proved too difficult to do this simple thing in the C++ model due to inconssitencies between the qml and c++ formatting of html/markdown
-                                            BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length), textEditor.cursorPosition);
+                                            root.lastCursorPos = cursorPosition;
+                                            BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length), savedCursorPositionForUndo);
                                             checkIfToScrollDown();
                                         } else {
                                             // hard break with saving text
@@ -1319,13 +1392,15 @@ Rectangle {
                     onTextChanged: {
 //                        console.log("BLOCK TEXT CHANGED: ", delegate);
                         if (!delegate.isPooled) {
-//                            console.log("onTextChanged");
-                            cursorPosition = root.lastCursorPos;
+
+//                            cursorPosition = root.lastCursorPos;
                             if (root.selectedBlock === delegate && root.isAnyKeyPressed && !root.isProgrammaticChange && root.selectedBlockIndexes.length <= 1) {
                                 if(delegate.blockType !== BlockInfo.Divider) {
-//                                    console.log("In setTextAtIndex");
+                                    console.log("In onTextChanged QML");
                                     BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length), textEditor.cursorPosition);
                                     delegate.lastBlockType = delegate.blockType;
+                                    console.log("root.lastCursorPos 12:", root.lastCursorPos);
+                                    cursorPosition = root.lastCursorPos;
 //                                    root.selectedBlockIndexes = [delegate.index];
 //                                    root.selectedBlock = delegate;
 //                                    console.log("selectedBlock 7: ", delegate.index);
@@ -1363,8 +1438,9 @@ Rectangle {
                         var actualStartPos = selectionArea.selStartIndex < selectionArea.selEndIndex ? selectionArea.selStartPos : selectionArea.selEndPos;
                         var actualEndPos = selectionArea.selStartIndex < selectionArea.selEndIndex ? selectionArea.selEndPos : selectionArea.selStartPos;
 
-//                        console.log("actualStartIndex: ", actualStartIndex);
-//                        console.log("actualEndIndex: ", actualEndIndex);
+                        console.log("delegate index:", delegate.index);
+                        console.log("actualStartIndex: ", actualStartIndex);
+                        console.log("actualEndIndex: ", actualEndIndex);
 
                         if (delegate.index < actualStartIndex || delegate.index > actualEndIndex) {
                             textEditor.deselect();
