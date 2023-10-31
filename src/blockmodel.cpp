@@ -1034,6 +1034,17 @@ void BlockModel::undo()
                 updateBlocksLinePositions(singleAction.blockEndIndex + 1, lines.length());
                 actionWithSelectionToRestore = singleAction;
                 shouldRestoreSelection = true;
+                QSharedPointer<BlockInfo> firstBlockInfo = m_blockList[singleAction.blockStartIndex - 1];
+                for (int i = singleAction.blockEndIndex + 1; i < m_blockList.length(); i++) {
+                    QSharedPointer<BlockInfo> blockInfo = m_blockList[i];
+                    if (blockInfo->indentedString().length() == 0 ||
+                        blockInfo->indentedString().length() <= firstBlockInfo->indentedString().length()) {
+                        break;
+                    }
+                    determineBlockIndentAndParentChildRelationship(blockInfo, i - 1);
+                    QModelIndex modelIdx = this->index(i);
+                    emit dataChanged(modelIdx, modelIdx, {});
+                }
             } else if (singleAction.actionType == ActionType::Insert) {
                 qDebug() << "In undo Insert";
                 int blockIndex = singleAction.blockStartIndex;
@@ -1113,6 +1124,17 @@ void BlockModel::redo()
                 updateBlocksLinePositions(
                         singleAction.blockStartIndex,
                         -(singleAction.blockEndIndex - singleAction.blockStartIndex + 1));
+                QSharedPointer<BlockInfo> firstBlockInfo = m_blockList[singleAction.blockStartIndex - 1];
+                for (int i = singleAction.blockStartIndex; i < m_blockList.length(); i++) {
+                    QSharedPointer<BlockInfo> blockInfo = m_blockList[i];
+                    if (blockInfo->indentedString().length() == 0 ||
+                        blockInfo->indentedString().length() <= firstBlockInfo->indentedString().length()) {
+                        break;
+                    }
+                    determineBlockIndentAndParentChildRelationship(blockInfo, i - 1);
+                    QModelIndex modelIdx = this->index(i);
+                    emit dataChanged(modelIdx, modelIdx, {});
+                }
             } else if (singleAction.actionType == ActionType::Insert) {
                 qDebug() << "In redo Insert";
                 int blockIndex = singleAction.blockStartIndex;

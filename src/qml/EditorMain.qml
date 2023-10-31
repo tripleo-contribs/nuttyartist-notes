@@ -1070,6 +1070,12 @@ Rectangle {
                             return;
                         }
 
+                        if (root.isHoldingControl && event.key === Qt.Key_C) {
+                            event.accepted = true;
+                            root.copy();
+                            return;
+                        }
+
                         if ((root.isHoldingShift && root.isHoldingControl && event.key === Qt.Key_Z) || (root.isHoldingControl && event.key === Qt.Key_Y)) { // TODO: Why Qt.Key_Redo doesn't work?
                            console.log("REDO QML");
                            event.accepted = true;
