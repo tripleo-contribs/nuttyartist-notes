@@ -256,6 +256,30 @@ Rectangle {
         }
     }
 
+    function editingMultipleBlocks(eventKey) {
+        var savedPressedChar = eventKey !== Qt.Key_Backspace ? eventKey : -1;
+        var firstBlockSelectionStart;
+        var lastBlockSelectionEnd;
+        var firstBlockIndex = Math.min(...root.selectedBlockIndexes);
+        if (selectionArea.selStartIndex > selectionArea.selEndIndex) {
+            root.lastCursorPos = selectionArea.selEndPos;
+            console.log("lastCursorPos CHANGED 6:", root.lastCursorPos);
+            firstBlockSelectionStart = selectionArea.selEndPos;
+            lastBlockSelectionEnd = selectionArea.selStartPos;
+        } else {
+            root.lastCursorPos = selectionArea.selStartPos;
+            console.log("lastCursorPos CHANGED 7:", root.lastCursorPos);
+            firstBlockSelectionStart = selectionArea.selStartPos;
+            lastBlockSelectionEnd = selectionArea.selEndPos;
+        }
+        if (eventKey !== Qt.Key_Backspace) root.lastCursorPos += 1;
+        console.log("lastCursorPos CHANGED 21:", root.lastCursorPos);
+        var isPressedCharLower = !root.isHoldingShift && !root.isHoldingCapsLock;
+        BlockModel.editBlocks(root.selectedBlockIndexes, firstBlockSelectionStart, lastBlockSelectionEnd, savedPressedChar, isPressedCharLower);
+        console.log("root.selectedBlockIndexes: 20", root.selectedBlockIndexes);
+        root.blockToFocusOn(firstBlockIndex);
+    }
+
     function selectAll () {
         root.selectedBlockIndexes = [];
         var indexes = Array.from({ length: BlockModel.rowCount() }, (_, i) => i);
@@ -265,6 +289,44 @@ Rectangle {
         selectionArea.selStartPos = 0;
         selectionArea.selEndPos = BlockModel.getBlockTextLengthWithoutIndentAndDelimiter(BlockModel.rowCount() - 1); //blockEditorView.itemAtIndex(blockEditorView.count - 1).textEditorPointer.length;
         selectionArea.selectionChanged();
+    }
+
+    function copy () {
+        var firstBlockSelectionStartPos;
+        var lastBlockSelectionEndPos;
+        if (root.selectedBlockIndexes.length > 1) {
+            if (selectionArea.selStartIndex > selectionArea.selEndIndex) {
+                firstBlockSelectionStartPos = selectionArea.selEndPos;
+                lastBlockSelectionEndPos = selectionArea.selStartPos;
+            } else {
+                firstBlockSelectionStartPos = selectionArea.selStartPos;
+                lastBlockSelectionEndPos = selectionArea.selEndPos;
+            }
+        } else {
+            firstBlockSelectionStartPos = Math.min(selectionArea.selStartPos, selectionArea.selEndPos);
+            lastBlockSelectionEndPos = Math.max(selectionArea.selStartPos, selectionArea.selEndPos);
+        }
+
+        BlockModel.copy(root.selectedBlockIndexes, firstBlockSelectionStartPos, lastBlockSelectionEndPos);
+    }
+
+    function paste () {
+        var firstBlockSelectionStartPos;
+        var lastBlockSelectionEndPos;
+        if (root.selectedBlockIndexes.length > 1) {
+            if (selectionArea.selStartIndex > selectionArea.selEndIndex) {
+                firstBlockSelectionStartPos = selectionArea.selEndPos;
+                lastBlockSelectionEndPos = selectionArea.selStartPos;
+            } else {
+                firstBlockSelectionStartPos = selectionArea.selStartPos;
+                lastBlockSelectionEndPos = selectionArea.selEndPos;
+            }
+        } else {
+            firstBlockSelectionStartPos = Math.min(selectionArea.selStartPos, selectionArea.selEndPos);
+            lastBlockSelectionEndPos = Math.max(selectionArea.selStartPos, selectionArea.selEndPos);
+        }
+
+        BlockModel.paste(root.selectedBlockIndexes, firstBlockSelectionStartPos, lastBlockSelectionEndPos);
     }
 
 //    onSelectedBlockChanged: {
@@ -953,7 +1015,7 @@ Rectangle {
 
                         if (!delegate.isPooled && !root.isProgrammaticChange) {
                             root.lastCursorPos = cursorPosition;
-//                            console.log("lastCursorPos CHANGED 5:", root.lastCursorPos);
+                            console.log("lastCursorPos CHANGED 5:", root.lastCursorPos);
                         }
                     }
 
@@ -993,30 +1055,6 @@ Rectangle {
                             root.cursorShowed();
                             textEditor.cursorShowed();
                         }
-                    }
-
-                    function editingMultipleBlocks(eventKey) {
-                        var savedPressedChar = eventKey !== Qt.Key_Backspace ? eventKey : -1;
-                        var firstBlockSelectionStart;
-                        var lastBlockSelectionEnd;
-                        var firstBlockIndex = Math.min(...root.selectedBlockIndexes);
-                        if (selectionArea.selStartIndex > selectionArea.selEndIndex) {
-                            root.lastCursorPos = selectionArea.selEndPos;
-                            console.log("lastCursorPos CHANGED 6:", root.lastCursorPos);
-                            firstBlockSelectionStart = selectionArea.selEndPos;
-                            lastBlockSelectionEnd = selectionArea.selStartPos;
-                        } else {
-                            root.lastCursorPos = selectionArea.selStartPos;
-                            console.log("lastCursorPos CHANGED 7:", root.lastCursorPos);
-                            firstBlockSelectionStart = selectionArea.selStartPos;
-                            lastBlockSelectionEnd = selectionArea.selEndPos;
-                        }
-                        if (eventKey !== Qt.Key_Backspace) root.lastCursorPos += 1;
-                        console.log("lastCursorPos CHANGED 21:", root.lastCursorPos);
-                        var isPressedCharLower = !root.isHoldingShift && !root.isHoldingCapsLock;
-                        BlockModel.editBlocks(root.selectedBlockIndexes, firstBlockSelectionStart, lastBlockSelectionEnd, savedPressedChar, isPressedCharLower);
-                        console.log("root.selectedBlockIndexes: 20", root.selectedBlockIndexes);
-                        root.blockToFocusOn(firstBlockIndex);
                     }
 
                     Keys.onPressed: (event) => {
@@ -1073,6 +1111,12 @@ Rectangle {
                         if (root.isHoldingControl && event.key === Qt.Key_C) {
                             event.accepted = true;
                             root.copy();
+                            return;
+                        }
+
+                        if (root.isHoldingControl && event.key === Qt.Key_V) {
+                            event.accepted = true;
+                            root.paste();
                             return;
                         }
 
@@ -1244,7 +1288,7 @@ Rectangle {
                                 [selectionArea.selEndIndex, selectionArea.selEndPos] = [selectionArea.selStartIndex, selectionArea.selStartPos];
                                 selectionArea.selectionChanged();
                             } else if (event.key !== Qt.Key_Right && event.key !== Qt.Key_Left) {
-                                textEditor.editingMultipleBlocks(event.key);
+                                root.editingMultipleBlocks(event.key);
                                 event.accepted = true;
                                 return;
                             }
@@ -1385,11 +1429,11 @@ Rectangle {
                                 }
                             } else if (root.selectedBlockIndexes.length > 1) {
                                 if (root.isHoldingShift) {
-                                    editingMultipleBlocks(-1);
+                                    root.editingMultipleBlocks(-1);
                                     textEditor.insert(cursorPosition, "<br />");
                                     BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length), textEditor.cursorPosition);
                                 } else {
-                                    editingMultipleBlocks(-1);
+                                    root.editingMultipleBlocks(-1);
                                     console.log("delegate.index 4: ", delegate.index);
                                     BlockModel.insertNewBlock(delegate.index, "");
                                     checkIfToScrollDown();

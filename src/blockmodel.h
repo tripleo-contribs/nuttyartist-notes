@@ -9,6 +9,9 @@
 #include <QTextCursor>
 #include <QElapsedTimer>
 #include <QSharedPointer>
+#include <QClipboard>
+#include <QGuiApplication>
+
 
 #include "blockinfo.h"
 
@@ -71,6 +74,10 @@ public:
     QString markdownToHtml(const QString &markdown);
 
 public slots:
+    void paste(QList<int> selectedBlockIndexes, int firstBlockSelectionStartPos,
+              int lastBlockSelectionEndPos);
+    void copy(QList<int> selectedBlockIndexes, int firstBlockSelectionStartPos,
+              int lastBlockSelectionEndPos);
     void setVerticalScrollBarPosition(double scrollBarPosition, int itemIndexInView);
     void undo();
     void redo();
@@ -114,6 +121,7 @@ private:
     QList<CompoundAction> m_redoStack;
     double m_verticalScrollBarPosition;
     int m_itemIndexInView;
+    QClipboard *m_clipboard;
 
     void updateBlockUsingPlainText(QSharedPointer<BlockInfo> &blockInfo, unsigned int blockIndex,
                                    QString &plainText);

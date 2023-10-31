@@ -14,6 +14,7 @@ BlockModel::BlockModel(QObject *parent)
       m_redoStack({})
 {
     Q_UNUSED(parent);
+    m_clipboard = QGuiApplication::clipboard();
 }
 
 int BlockModel::rowCount(const QModelIndex &parent) const
@@ -1176,4 +1177,50 @@ int BlockModel::getBlockTextLengthWithoutIndentAndDelimiter(int blockIndex) {
     plainText = plainText.mid(blockInfo->indentedString().length()
                               + blockInfo->blockDelimiter().length());
     return plainText.length();
+}
+
+void BlockModel::copy(QList<int> selectedBlockIndexes, int firstBlockSelectionStartPos, int lastBlockSelectionEndPos)
+{
+    std::sort(selectedBlockIndexes.begin(), selectedBlockIndexes.end());
+    QString copiedText = "";
+
+    QSharedPointer<BlockInfo> firstBlock = m_blockList[selectedBlockIndexes[0]];
+    int lineBreakCount = firstBlock->textPlainText().count("<br />");
+    int lineBreaksLength =
+            (lineBreakCount * QStringLiteral("<br />").length()) - lineBreakCount;
+    int indentAndDelimiterAndLineBreaksLength = firstBlock->indentedString().length() + firstBlock->blockDelimiter().length() + lineBreaksLength;
+    if (firstBlockSelectionStartPos == 0 && (selectedBlockIndexes.length() > 1 || lastBlockSelectionEndPos + indentAndDelimiterAndLineBreaksLength == firstBlock->textPlainText().length())) {
+        copiedText += firstBlock->textPlainText();
+    } else {
+        copiedText += firstBlock->textPlainText().mid(indentAndDelimiterAndLineBreaksLength + firstBlockSelectionStartPos);
+    }
+
+    if (selectedBlockIndexes.length() > 2) {
+        int startLinePos = selectedBlockIndexes[1];
+        int endLinePos = selectedBlockIndexes[selectedBlockIndexes.length() - 2];
+        QTextBlock startBlock = m_sourceDocument.findBlockByLineNumber(startLinePos);
+        QTextBlock endBlock = m_sourceDocument.findBlockByLineNumber(endLinePos);
+        QTextCursor cursor(startBlock);
+        cursor.setPosition(startBlock.position(), QTextCursor::MoveAnchor);
+        cursor.setPosition(endBlock.position() + endBlock.length() - 1, QTextCursor::KeepAnchor);
+        copiedText += "\n" + cursor.selectedText().replace("\u2029", "\n");
+    }
+
+    if (selectedBlockIndexes.length() > 1) {
+        QSharedPointer<BlockInfo> lastBlock = m_blockList[selectedBlockIndexes[selectedBlockIndexes.length() - 1]];
+        QString tempLastBlockText = lastBlock->textPlainText();
+        tempLastBlockText.replace("<br />", "\n");
+        int indentAndDelimiterLastBlock = lastBlock->indentedString().length() + lastBlock->blockDelimiter().length();
+        tempLastBlockText.truncate(lastBlockSelectionEndPos + indentAndDelimiterLastBlock);
+        copiedText += "\n" + tempLastBlockText;
+    }
+
+    copiedText.replace("<br />", "\n");
+
+    m_clipboard->setText(copiedText);
+}
+
+void BlockModel::paste(QList<int> selectedBlockIndexes, int firstBlockSelectionStartPos, int lastBlockSelectionEndPos)
+{
+    std::sort(selectedBlockIndexes.begin(), selectedBlockIndexes.end());
 }
