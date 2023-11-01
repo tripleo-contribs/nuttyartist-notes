@@ -939,7 +939,6 @@ void BlockModel::editBlocks(QList<int> selectedBlockIndexes, int firstBlockSelec
     qDebug() << "end remove: " << selectedBlockIndexes[selectedBlockIndexes.length() - 1];
     for (int i = selectedBlockIndexes[1];
          i <= selectedBlockIndexes[selectedBlockIndexes.length() - 1]; i++) {
-        qDebug() << "i: " << i;
         QSharedPointer<BlockInfo> blockToRemove = m_blockList[i];
         for (auto &child : blockToRemove->children()) {
             if (child->parent() != nullptr)
@@ -1021,19 +1020,25 @@ void BlockModel::undo()
                 int index = 0;
                 for (auto &line : lines) {
                     int blockIndex = singleAction.blockStartIndex + index;
-                    qDebug() << "blockIndex: " << blockIndex;
+//                    qDebug() << "blockIndex: " << blockIndex;
                     //                    BlockInfo *blockInfo = new BlockInfo(this);
                     QSharedPointer<BlockInfo> blockInfo =
                             QSharedPointer<BlockInfo>(new BlockInfo());
                     m_blockList.insert(blockIndex, blockInfo);
                     updateBlockUsingPlainText(blockInfo, blockIndex, line);
-                    qDebug() << "blockStartLinePos:" << blockInfo->lineStartPos();
-                    qDebug() << "blockEndLinePos:" << blockInfo->lineEndPos();
+//                    qDebug() << "blockStartLinePos:" << blockInfo->lineStartPos();
+//                    qDebug() << "blockEndLinePos:" << blockInfo->lineEndPos();
                     index++;
                 }
                 endInsertRows();
                 updateBlocksLinePositions(singleAction.blockEndIndex + 1, lines.length());
-                actionWithSelectionToRestore = singleAction;
+
+                actionWithSelectionToRestore.blockStartIndex = singleAction.blockStartIndex;
+                actionWithSelectionToRestore.blockEndIndex = singleAction.blockEndIndex;
+                actionWithSelectionToRestore.firstBlockSelectionStart =
+                        singleAction.firstBlockSelectionStart;
+                actionWithSelectionToRestore.lastBlockSelectionEnd =
+                        singleAction.lastBlockSelectionEnd;
                 shouldRestoreSelection = true;
                 QSharedPointer<BlockInfo> firstBlockInfo = m_blockList[singleAction.blockStartIndex - 1];
                 for (int i = singleAction.blockEndIndex + 1; i < m_blockList.length(); i++) {
@@ -1223,4 +1228,10 @@ void BlockModel::copy(QList<int> selectedBlockIndexes, int firstBlockSelectionSt
 void BlockModel::paste(QList<int> selectedBlockIndexes, int firstBlockSelectionStartPos, int lastBlockSelectionEndPos)
 {
     std::sort(selectedBlockIndexes.begin(), selectedBlockIndexes.end());
+    QString clipboardText = m_clipboard->text();
+
+    if (clipboardText.isEmpty())
+        return;
+
+
 }

@@ -136,6 +136,9 @@ Rectangle {
 
         function onTextChangeFinished() {
             console.log("In onTextChangeFinished:", root.lastCursorPos);
+            root.isHoldingControl = false;
+            root.isHoldingShift = false;
+            root.isHoldingCapsLock = false;
             root.isProgrammaticChange = false;
             root.selectedBlock.textEditorPointer.cursorPosition = root.lastCursorPos;
         }
@@ -165,9 +168,11 @@ Rectangle {
         function onRestoreSelection(blockStartIndex : int, blockEndIndex : int, firstBlockSelectionStart : int, lastBlockSelectionEnd : int) {
             blockStartIndex = (blockStartIndex - 1) >= 0 ? (blockStartIndex - 1) : 0; // We get the start of the removel index so we need to decrease it by 1
             root.selectedBlockIndexes = [];
-            for (var i = blockStartIndex; i <= blockEndIndex; i++) {
-                root.selectedBlockIndexes.push(i);
-            }
+            root.selectedBlockIndexes = Array.from(
+              { length: blockEndIndex - blockStartIndex + 1 },
+              (_, i) => blockStartIndex + i
+            );
+
             selectionArea.selStartIndex = blockStartIndex;
             selectionArea.selEndIndex = blockEndIndex;
             selectionArea.selStartPos = firstBlockSelectionStart;
