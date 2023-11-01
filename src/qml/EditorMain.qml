@@ -136,9 +136,6 @@ Rectangle {
 
         function onTextChangeFinished() {
             console.log("In onTextChangeFinished:", root.lastCursorPos);
-            root.isHoldingControl = false;
-            root.isHoldingShift = false;
-            root.isHoldingCapsLock = false;
             root.isProgrammaticChange = false;
             root.selectedBlock.textEditorPointer.cursorPosition = root.lastCursorPos;
         }
@@ -148,6 +145,9 @@ Rectangle {
         }
 
         function onLoadTextFinished(data) {
+            root.isHoldingControl = false;
+            root.isHoldingShift = false;
+            root.isHoldingCapsLock = false;
             root.isProgrammaticChange = false;
             blockEditorView.positionViewAtIndex(data.itemIndexInView, ListView.Beginning);
         }
@@ -1089,7 +1089,6 @@ Rectangle {
                         }
 
                         if (event.key === Qt.Key_Shift) {
-                                            console.log("SHIFT IS ON");
                             event.accepted = true;
                             root.isHoldingShift = true;
                             return;
