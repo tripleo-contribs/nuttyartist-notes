@@ -73,6 +73,12 @@ Rectangle {
             root.currentFontPointBaseSize = data.currentFontPointSize;
             root.currentEditorTextColor = data.currentEditorTextColor;
         }
+
+        function onMainWindowDeactivated () {
+            root.isHoldingControl = false;
+            root.isHoldingShift = false;
+            root.isHoldingCapsLock = false;
+        }
     }
 
     property int editorRightLeftPadding: if (blockEditorView.width <= 420) {
@@ -126,6 +132,7 @@ Rectangle {
     property bool canUpdateCursorPos: true
     property rect lastCursorRect: Qt.rect(0,0,0,0)
     property string currentHoveredLink: ""
+    property bool isPasting: false
 
     Connections {
         target: BlockModel
@@ -135,7 +142,7 @@ Rectangle {
         }
 
         function onTextChangeFinished() {
-            console.log("In onTextChangeFinished:", root.lastCursorPos);
+//            console.log("In onTextChangeFinished:", root.lastCursorPos);
             root.isProgrammaticChange = false;
             root.selectedBlock.textEditorPointer.cursorPosition = root.lastCursorPos;
         }
@@ -178,35 +185,52 @@ Rectangle {
             selectionArea.selStartPos = firstBlockSelectionStart;
             selectionArea.selEndPos = lastBlockSelectionEnd;
             selectionArea.selectionChanged();
-            console.log("blockStartIndex:", blockStartIndex);
-            console.log("blockEndIndex:", blockEndIndex);
-            console.log("firstBlockSelectionStart:", firstBlockSelectionStart);
-            console.log("lastBlockSelectionEnd:", lastBlockSelectionEnd);
+//            console.log("blockStartIndex:", blockStartIndex);
+//            console.log("blockEndIndex:", blockEndIndex);
+//            console.log("firstBlockSelectionStart:", firstBlockSelectionStart);
+//            console.log("lastBlockSelectionEnd:", lastBlockSelectionEnd);
         }
 
 
     }
 
-    function blockToFocusOn(blockIndex : int) {
-        console.log("In blockToFocusOn 0");
-        console.log("blockIndex: ", blockIndex);
-        var block = blockEditorView.itemAtIndex(blockIndex);
-        if (block !== null && block.textEditorPointer !== null) {
-            console.log("In blockToFocusOn");
-            console.log("blockIndex: ", blockIndex);
+    function focusOnBlockHelper (blockIndex: int) {
+        let block = blockEditorView.itemAtIndex(blockIndex);
+        if (block !== null) {
             block.textEditorPointer.cursorVisible = true;
             block.textEditorPointer.cursorShowed();
             block.textEditorPointer.cursorPosition = root.lastCursorPos;
             block.textEditorPointer.forceActiveFocus();
             root.selectedBlockIndexes = [blockIndex];
             root.selectedBlock = blockEditorView.itemAtIndex(blockIndex);
-            console.log("selectedBlock 2: ", blockIndex);
-            console.log("root.selectedBlockIndexes: 3", root.selectedBlockIndexes);
             selectionArea.selStartIndex = blockIndex;
             selectionArea.selStartPos = block.textEditorPointer.cursorPosition;
             [selectionArea.selEndIndex, selectionArea.selEndPos] = [selectionArea.selStartIndex, selectionArea.selStartPos];
             selectionArea.selectionChanged();
         }
+    }
+
+    function isBlockOutOfView (block) {
+        return block.y + block.height < blockEditorView.contentY || block.y > blockEditorView.contentY + blockEditorView.height;
+    }
+
+    function blockToFocusOn(blockIndex : int) {
+        console.log("In blockToFocusOn 0");
+        console.log("blockIndex: ", blockIndex);
+        var block = blockEditorView.itemAtIndex(blockIndex);
+        if (block !== null) {
+            if (root.isPasting && root.isBlockOutOfView(block)) {
+                blockEditorView.positionViewAtIndex(blockIndex, ListView.Center);
+            }
+            focusOnBlockHelper(blockIndex);
+        } else {
+            blockEditorView.positionViewAtIndex(blockIndex, ListView.Center);
+            block = blockEditorView.itemAtIndex(blockIndex);
+            if (block !== null) {
+                focusOnBlockHelper(blockIndex);
+            }
+        }
+        root.isPasting = false;
     }
 
     function positionViewAtTopAndSelectFirstBlock () {
@@ -281,7 +305,7 @@ Rectangle {
         console.log("lastCursorPos CHANGED 21:", root.lastCursorPos);
         var isPressedCharLower = !root.isHoldingShift && !root.isHoldingCapsLock;
         BlockModel.editBlocks(root.selectedBlockIndexes, firstBlockSelectionStart, lastBlockSelectionEnd, savedPressedChar, isPressedCharLower);
-        console.log("root.selectedBlockIndexes: 20", root.selectedBlockIndexes);
+//        console.log("root.selectedBlockIndexes: 20", root.selectedBlockIndexes);
         root.blockToFocusOn(firstBlockIndex);
     }
 
@@ -327,10 +351,15 @@ Rectangle {
                 lastBlockSelectionEndPos = selectionArea.selEndPos;
             }
         } else {
-            firstBlockSelectionStartPos = Math.min(selectionArea.selStartPos, selectionArea.selEndPos);
-            lastBlockSelectionEndPos = Math.max(selectionArea.selStartPos, selectionArea.selEndPos);
+            if (root.selectedBlock && root.selectedBlock.textEditorPointer.selectedText.length > 0) {
+                firstBlockSelectionStartPos = Math.min(selectionArea.selStartPos, selectionArea.selEndPos);
+                lastBlockSelectionEndPos = Math.max(selectionArea.selStartPos, selectionArea.selEndPos);
+            } else {
+                firstBlockSelectionStartPos = root.selectedBlock.textEditorPointer.cursorPosition;
+                lastBlockSelectionEndPos = firstBlockSelectionStartPos;
+            }
         }
-
+        root.isPasting = true;
         BlockModel.paste(root.selectedBlockIndexes, firstBlockSelectionStartPos, lastBlockSelectionEndPos);
     }
 
@@ -440,7 +469,7 @@ Rectangle {
                 if (root.selectedBlockIndexes.length > 0){
                     if(!blockEditorView.itemAtIndex(root.selectedBlockIndexes[0])) {
                         // If there's a selected item but it's out-of-view, we bring him into view
-                        console.log("Pressed while out-of-view: ", event.key);
+//                        console.log("Pressed while out-of-view: ", event.key);
                         blockEditorView.positionViewAtIndex(root.selectedBlockIndexes[0], ListView.Center);
                         verticalScrollBar.keepActive();
                         event.accepted = true;
@@ -632,7 +661,7 @@ Rectangle {
                 delegate.isPooled = false;
                 textEditor.updateSelection();
                 if (root.selectedBlockIndexes.length === 1 && root.selectedBlockIndexes[0] === delegate.index) {
-                    console.log("on Completed 2");
+//                    console.log("on Completed 2");
                     console.log(root.lastCursorPos);
                     textEditor.cursorAnimationRunning = true;
                     textEditor.cursorShowed();
@@ -651,7 +680,7 @@ Rectangle {
                     textEditorPointer.cursorPosition = root.lastCursorPos;
                     textEditorPointer.forceActiveFocus();
                     root.selectedBlock = delegate;
-                    console.log("selectedBlock 3: ", delegate.index);
+//                    console.log("selectedBlock 3: ", delegate.index);
                     root.blockIndexToFocusOn = -1;
                     root.enableCursorAnimation = true;
                     root.canUpdateCursorPos = true;
@@ -822,14 +851,14 @@ Rectangle {
                     onTaskChecked: {
                         root.selectedBlockIndexes = [delegate.index];
                         root.selectedBlock = delegate;
-                        console.log("root.selectedBlockIndexes: 18", root.selectedBlockIndexes);
+//                        console.log("root.selectedBlockIndexes: 18", root.selectedBlockIndexes);
                         BlockModel.toggleTaskAtIndex(delegate.index);
                     }
 
                     onTaskUnchecked: {
                         root.selectedBlockIndexes = [delegate.index];
                         root.selectedBlock = delegate;
-                        console.log("root.selectedBlockIndexes: 19", root.selectedBlockIndexes);
+//                        console.log("root.selectedBlockIndexes: 19", root.selectedBlockIndexes);
                         BlockModel.toggleTaskAtIndex(delegate.index);
                     }
                 }
@@ -1020,7 +1049,7 @@ Rectangle {
 
                         if (!delegate.isPooled && !root.isProgrammaticChange) {
                             root.lastCursorPos = cursorPosition;
-                            console.log("lastCursorPos CHANGED 5:", root.lastCursorPos);
+//                            console.log("lastCursorPos CHANGED 5:", root.lastCursorPos);
                         }
                     }
 
@@ -1143,11 +1172,11 @@ Rectangle {
                         if (event.key === Qt.Key_Right) {
                             if (root.selectedBlockIndexes.length === 1 && cursorPosition === textEditor.length && delegate.index + 1 < BlockModel.rowCount()) {
                                 root.lastCursorPos = 0;
-                                                console.log("lastCursorPos CHANGED 8:", root.lastCursorPos);
+//                                                console.log("lastCursorPos CHANGED 8:", root.lastCursorPos);
                                 blockToFocusOn(delegate.index + 1);
                                 checkIfToScrollDown();
                             } else if (root.selectedBlockIndexes.length > 1) {
-                                                console.log("IN RIGHT");
+//                                                console.log("IN RIGHT");
                                  let actualEndIndex = Math.max(selectionArea.selStartIndex, selectionArea.selEndIndex);
                                  let blockAtEnd = blockEditorView.itemAtIndex(actualEndIndex);
                                  let actualEndPos = selectionArea.selStartIndex < selectionArea.selEndIndex ? selectionArea.selEndPos : selectionArea.selStartPos;
@@ -1166,11 +1195,11 @@ Rectangle {
                                 root.lastCursorPos = 0;
                                 let block = blockEditorView.itemAtIndex(delegate.index - 1);
                                 root.lastCursorPos = block.textEditorPointer.length;
-                                                console.log("lastCursorPos CHANGED 9:", root.lastCursorPos);
+//                                                console.log("lastCursorPos CHANGED 9:", root.lastCursorPos);
                                 blockToFocusOn(delegate.index - 1);
                                 checkIfToScrollUp();
                             } else if (root.selectedBlockIndexes.length > 1) {
-                                                console.log("IN LEFT");
+//                                                console.log("IN LEFT");
                                  let actualStartIndex = Math.min(selectionArea.selStartIndex, selectionArea.selEndIndex);
                                  let blockAtStart = blockEditorView.itemAtIndex(actualStartIndex);
                                  let actualStartPos = selectionArea.selStartIndex < selectionArea.selEndIndex ? selectionArea.selStartPos : selectionArea.selEndPos;
@@ -1189,7 +1218,7 @@ Rectangle {
 
                         if (event.key === Qt.Key_Up) {
                             if (root.isHoldingControl) {
-                                console.log("Control + UP");
+//                                console.log("Control + UP");
                                 event.accepted = true;
                                 root.positionViewAtTopAndSelectFirstBlock();
                                 return;
@@ -1210,7 +1239,7 @@ Rectangle {
                                         let cursorXMappedToItemAbove = blockAbove.textEditorPointer.mapFromItem(root, root.cursorXSaved, root.y).x;
                                         let upperDelegatLastLineY = blockAbove.textEditorPointer.positionToRectangle(blockAbove.textEditorPointer.length).y;
                                         root.lastCursorPos = blockAbove.textEditorPointer.positionAt(cursorXMappedToItemAbove, upperDelegatLastLineY);
-                                                        console.log("lastCursorPos CHANGED 10:", root.lastCursorPos);
+//                                                        console.log("lastCursorPos CHANGED 10:", root.lastCursorPos);
                                         blockToFocusOn(delegate.index - 1);
                                         event.accepted = true;
                                         return;
@@ -1224,7 +1253,7 @@ Rectangle {
 
                         if (event.key === Qt.Key_Down) {
                             if (root.isHoldingControl) {
-                                console.log("Control + DOWN");
+//                                console.log("Control + DOWN");
                                 event.accepted = true;
                                 root.positionViewAtBottomAndSelectLastBlock();
                                 return;
@@ -1245,7 +1274,7 @@ Rectangle {
                                         let cursorXMappedToItemBelow = blockBelow.textEditorPointer.mapFromItem(root, root.cursorXSaved, root.y).x;
                                         let lowerDelegatFirstLineY = blockBelow.textEditorPointer.positionToRectangle(0).y;
                                         root.lastCursorPos = blockBelow.textEditorPointer.positionAt(cursorXMappedToItemBelow, lowerDelegatFirstLineY);
-                                                        console.log("lastCursorPos CHANGED 11:", root.lastCursorPos);
+//                                                        console.log("lastCursorPos CHANGED 11:", root.lastCursorPos);
                                         blockToFocusOn(delegate.index + 1);
                                         event.accepted = true;
                                         return;
@@ -1285,8 +1314,8 @@ Rectangle {
                             if (event.key === Qt.Key_Up || event.key === Qt.Key_Down) {
                                 root.selectedBlockIndexes = [index];
                                 root.selectedBlock = delegate;
-                                                console.log("selectedBlock 6: ", delegate.index);
-                                console.log("root.selectedBlockIndexes: 15", root.selectedBlockIndexes);
+//                                                console.log("selectedBlock 6: ", delegate.index);
+//                                console.log("root.selectedBlockIndexes: 15", root.selectedBlockIndexes);
                                 selectionArea.selStartIndex = delegate.index;
                                 selectionArea.selStartPos = cursorPosition;
                                 [selectionArea.selEndIndex, selectionArea.selEndPos] = [selectionArea.selStartIndex, selectionArea.selStartPos];
@@ -1301,7 +1330,7 @@ Rectangle {
                         if (event.key === Qt.Key_Backspace) {
 
                             root.cursorCurrentAnimationSpeed = 30;
-                            if (root.selectedBlockIndexes.length === 1 && cursorPosition === 0) {
+                            if (root.selectedBlockIndexes.length === 1 && cursorPosition === 0 && selectedText.length === 0) {
                                 if (delegate.blockIndentLevel === 0 && delegate.blockType === BlockInfo.RegularText && delegate.index > 0) {
                                     var previousBlock = blockEditorView.itemAtIndex(delegate.index - 1);
                                     if (previousBlock !== null && previousBlock.textEditorPointer !== null) {
@@ -1389,7 +1418,7 @@ Rectangle {
                                                     root.lastCursorRect = textEditor.cursorRectangle;
                                                     root.canUpdateCursorPos = false;
                                                     BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length - 1), textEditor.cursorPosition);
-                                                    console.log("delegate.index 1: ", delegate.index);
+//                                                    console.log("delegate.index 1: ", delegate.index);
                                                     BlockModel.insertNewBlock(delegate.index, "", true);
                                                     checkIfToScrollDown();
                                                 } else {
@@ -1407,7 +1436,7 @@ Rectangle {
                                                 BlockModel.unindentBlocks([delegate.index]);
                                             } else {
                                                 // hard break
-                                                console.log("delegate.index 2: ", delegate.index);
+//                                                console.log("delegate.index 2: ", delegate.index);
                                                 BlockModel.insertNewBlock(delegate.index, "");
                                                 checkIfToScrollDown();
                                             }
@@ -1425,7 +1454,7 @@ Rectangle {
                                             // hard break with saving text
                                             var savedText = textEditor.getFormattedText(cursorPosition, textEditor.length);
                                             BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, cursorPosition), textEditor.cursorPosition);
-                                            console.log("delegate.index 3: ", delegate.index);
+//                                            console.log("delegate.index 3: ", delegate.index);
                                             BlockModel.insertNewBlock(delegate.index, savedText, true);
                                             checkIfToScrollDown();
                                         }
@@ -1438,7 +1467,7 @@ Rectangle {
                                     BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length), textEditor.cursorPosition);
                                 } else {
                                     root.editingMultipleBlocks(-1);
-                                    console.log("delegate.index 4: ", delegate.index);
+//                                    console.log("delegate.index 4: ", delegate.index);
                                     BlockModel.insertNewBlock(delegate.index, "");
                                     checkIfToScrollDown();
                                 }
@@ -1476,10 +1505,10 @@ Rectangle {
 //                            cursorPosition = root.lastCursorPos;
                             if (root.selectedBlock === delegate && root.isAnyKeyPressed && !root.isProgrammaticChange && root.selectedBlockIndexes.length <= 1) {
                                 if(delegate.blockType !== BlockInfo.Divider) {
-                                    console.log("In onTextChanged QML");
+//                                    console.log("In onTextChanged QML");
                                     BlockModel.setTextAtIndex(delegate.index, textEditor.getFormattedText(0, textEditor.length), textEditor.cursorPosition);
                                     delegate.lastBlockType = delegate.blockType;
-                                    console.log("root.lastCursorPos 12:", root.lastCursorPos);
+//                                    console.log("root.lastCursorPos 12:", root.lastCursorPos);
                                     cursorPosition = root.lastCursorPos;
 //                                    root.selectedBlockIndexes = [delegate.index];
 //                                    root.selectedBlock = delegate;
@@ -1505,7 +1534,7 @@ Rectangle {
                     function appendDelegateIndexToSelectedBlocks() {
                         if (!root.selectedBlockIndexes.includes(delegate.index)) {
                             root.selectedBlockIndexes.push(delegate.index);
-                            console.log("root.selectedBlockIndexes: 17", root.selectedBlockIndexes);
+//                            console.log("root.selectedBlockIndexes: 17", root.selectedBlockIndexes);
                         }
                     }
 
@@ -1675,7 +1704,7 @@ Rectangle {
                 if (index !== -1) {
                     root.selectedBlockIndexes = [index];
                     root.selectedBlock = blockEditorView.itemAtIndex(index);
-                    console.log("root.selectedBlockIndexes: 16", root.selectedBlockIndexes);
+//                    console.log("root.selectedBlockIndexes: 16", root.selectedBlockIndexes);
                 }
                if (canTripleClick) {
                    if (isMouseOnTopOfDelegateText(blockDelegateText, Qt.point(mouse.x, mouse.y))) {
@@ -1724,7 +1753,7 @@ Rectangle {
                     lastBlock.textEditorPointer.forceActiveFocus();
                     root.selectedBlockIndexes = [lastBlockIndex];
                     root.selectedBlock = blockEditorView.itemAtIndex(lastBlockIndex);
-                               console.log("root.selectedBlockIndexes: 10", root.selectedBlockIndexes);
+//                               console.log("root.selectedBlockIndexes: 10", root.selectedBlockIndexes);
                     selStartIndex = lastBlockIndex;
                     selStartPos = lastBlock.textEditorPointer.length;
                     [selEndIndex, selEndPos] = [selStartIndex, selStartPos]

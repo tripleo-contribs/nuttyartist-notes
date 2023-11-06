@@ -544,7 +544,7 @@ void MainWindow::setupKeyboardShortcuts()
 #endif
     new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_J), this, SLOT(toggleNoteList()));
     new QShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_J), this, SLOT(toggleFolderTree()));
-//    new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_A), this, SLOT(selectAllNotesInList()));
+    //    new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_A), this, SLOT(selectAllNotesInList()));
     new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_QuoteLeft), this, SLOT(makeCode()));
     new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_B), this, SLOT(makeBold()));
     new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_I), this, SLOT(makeItalic()));
@@ -3571,7 +3571,7 @@ bool MainWindow::eventFilter(QObject *object, QEvent *event)
             m_editorSettingsWidget->close();
         }
 #endif
-
+        emit mainWindowDeactivated();
         m_canMoveWindow = false;
         m_canStretchWindow = false;
         QApplication::restoreOverrideCursor();

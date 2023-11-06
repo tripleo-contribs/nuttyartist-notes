@@ -58,6 +58,7 @@ public:
     void setBlockType(const BlockType &newType);
 
     BlockType determineBlockType(QString text);
+    static BlockType determineBlockTypeHelper(QString text);
 
     unsigned int lineStartPos() const;
     void setLineStartPos(unsigned int newLineStartPos);
@@ -83,8 +84,6 @@ public:
 
     QString blockDelimiter() const;
     void setBlockDelimiter(const QString &newBlockDelimiter);
-
-    bool isNumberedList(QString str);
 
     QString indentedString() const;
     void setIndentedString(const QString &newIndentedString);
@@ -123,7 +122,8 @@ private:
     QString m_indentedString;
     QJsonObject m_metaData;
 
-    QString trimLeadingWhitespaces(const QString &str);
+    static QString trimLeadingWhitespaces(const QString &str);
+    static QString findNumberedList(QString str);
 };
 
 #endif // BLOCKINFO_H

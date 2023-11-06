@@ -11,11 +11,12 @@
 #include <QSharedPointer>
 #include <QClipboard>
 #include <QGuiApplication>
-
+#include <QMimeData>
 
 #include "blockinfo.h"
 
 #include "md4c-html.h"
+#include "html2md.h"
 
 enum class OneCharOperation {
     CharInsert,
@@ -75,7 +76,7 @@ public:
 
 public slots:
     void paste(QList<int> selectedBlockIndexes, int firstBlockSelectionStartPos,
-              int lastBlockSelectionEndPos);
+               int lastBlockSelectionEndPos);
     void copy(QList<int> selectedBlockIndexes, int firstBlockSelectionStartPos,
               int lastBlockSelectionEndPos);
     void setVerticalScrollBarPosition(double scrollBarPosition, int itemIndexInView);
@@ -101,7 +102,8 @@ public slots:
 signals:
     void verticalScrollBarPositionChanged(double scrollBarPosition, int itemIndexInView);
     void restoreCursorPosition(int cursorPosition);
-    void restoreSelection(int blockStartIndex, int blockEndIndex, int firstBlockSelectionStart, int lastBlockSelectionEnd);
+    void restoreSelection(int blockStartIndex, int blockEndIndex, int firstBlockSelectionStart,
+                          int lastBlockSelectionEnd);
     void blockToFocusOnChanged(int blockIndex);
     void aboutToChangeText();
     void textChangeFinished();
@@ -123,6 +125,8 @@ private:
     int m_itemIndexInView;
     QClipboard *m_clipboard;
 
+    void pasteMarkdown(const QString &markdown, QList<int> &selectedBlockIndexes,
+                       int firstBlockSelectionStartPos, int lastBlockSelectionEndPos);
     void updateBlockUsingPlainText(QSharedPointer<BlockInfo> &blockInfo, unsigned int blockIndex,
                                    QString &plainText);
     QString QmlHtmlToMarkdown(QString &qmlHtml);
@@ -135,8 +139,7 @@ private:
             int startLinePos, int endLinePos, const QString &newText, bool shouldCreateUndo = true,
             int cursorPosition = 0, ActionType actionType = ActionType::Modify,
             OneCharOperation oneCharoperation = OneCharOperation::NoOneCharOperation,
-            bool isForceMergeLastAction = false,
-            int firstBlockSelectionStart = 0,
+            bool isForceMergeLastAction = false, int firstBlockSelectionStart = 0,
             int lastBlockSelectionEnd = 0);
     unsigned int calculateTotalIndentLength(const QString &str,
                                             QSharedPointer<BlockInfo> &blockInfo);

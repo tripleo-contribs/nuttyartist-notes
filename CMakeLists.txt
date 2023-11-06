@@ -239,7 +239,11 @@ set(SOURCES_3RD_PARTY
     ${PROJECT_SOURCE_DIR}/3rdParty/md4c/src/md4c-html.c
     ${PROJECT_SOURCE_DIR}/3rdParty/md4c/src/md4c-html.h
     ${PROJECT_SOURCE_DIR}/3rdParty/md4c/src/entity.c
-    ${PROJECT_SOURCE_DIR}/3rdParty/md4c/src/entity.h)
+    ${PROJECT_SOURCE_DIR}/3rdParty/md4c/src/entity.h
+    ${PROJECT_SOURCE_DIR}/3rdParty/html2md/src/html2md.cpp
+    ${PROJECT_SOURCE_DIR}/3rdParty/html2md/include/html2md.h
+    ${PROJECT_SOURCE_DIR}/3rdParty/html2md/src/table.cpp
+    ${PROJECT_SOURCE_DIR}/3rdParty/html2md/include/table.h)
 
 if(UPDATE_CHECKER)
   list(APPEND SOURCES ${PROJECT_SOURCE_DIR}/src/updaterwindow.cpp
@@ -287,7 +291,8 @@ target_include_directories(
   PUBLIC ${PROJECT_SOURCE_DIR}/3rdParty/qautostart/src
          ${PROJECT_SOURCE_DIR}/3rdParty/qmarkdowntextedit
          ${PROJECT_SOURCE_DIR}/3rdParty/qxt
-         ${PROJECT_SOURCE_DIR}/3rdParty/md4c/src)
+         ${PROJECT_SOURCE_DIR}/3rdParty/md4c/src
+         ${PROJECT_SOURCE_DIR}/3rdParty/html2md/include)
 
 if(UPDATE_CHECKER)
   target_include_directories(

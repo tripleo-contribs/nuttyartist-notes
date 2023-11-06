@@ -57,7 +57,7 @@ void BlockInfo::setBlockType(const BlockType &newType)
     emit blockTypeChanged();
 }
 
-bool BlockInfo::isNumberedList(QString str)
+QString BlockInfo::findNumberedList(QString str)
 {
     // Check if the string starts with a number
     int index = 0;
@@ -67,11 +67,10 @@ bool BlockInfo::isNumberedList(QString str)
 
     // Check if the next characters are ". "
     if (index > 0 && index + 1 < str.length() && str.sliced(index, 2) == ". ") {
-        setBlockDelimiter(str.sliced(0, index + 2));
-        return true;
+        return str.sliced(0, index + 2);
     }
 
-    return false;
+    return "";
 }
 
 QString BlockInfo::indentedString() const
@@ -96,6 +95,58 @@ QString BlockInfo::trimLeadingWhitespaces(const QString &str)
         }
     }
     return str.mid(i);
+}
+
+BlockInfo::BlockType BlockInfo::determineBlockTypeHelper(QString text)
+{
+    text = trimLeadingWhitespaces(text);
+
+    static const QStringList headingPrefixes = {
+        "# ", "## ", "### ", "#### ", "##### ", "###### "
+    };
+    for (const QString &prefix : headingPrefixes) {
+        if (text.startsWith(prefix)) {
+            return BlockType::Heading;
+        }
+    }
+
+    static const QStringList quotePrefixes = { "| ", "> ", ">> ", ">>> " };
+    for (const QString &prefix : quotePrefixes) {
+        if (text.startsWith(prefix)) {
+            return BlockType::Quote;
+        }
+    }
+
+    static const QStringList todoItemPrefixes = { "[ ] ",   "[x] ",   "- [ ] ", "* [ ] ",
+                                                  "+ [ ] ", "- [x] ", "* [x] ", "+ [x] " };
+    for (const QString &prefix : todoItemPrefixes) {
+        if (text.startsWith(prefix)) {
+            return BlockType::Todo;
+        }
+    }
+
+    static const QStringList bulletItemPrefixes = { "- ", "* ", "+ " };
+    for (const QString &prefix : bulletItemPrefixes) {
+        if (text.startsWith(prefix)) {
+            return BlockType::BulletListItem;
+        }
+    }
+
+    QString numberedListDelimiter = findNumberedList(text);
+    if (!numberedListDelimiter.isEmpty()) {
+        return BlockType::NumberedListItem;
+    }
+
+    if (text.startsWith("---")) {
+        return BlockType::Divider;
+    }
+
+    if (text.startsWith("^") && text.length() >= 2) {
+        return BlockType::DropCap;
+    }
+
+    // TODO: Kanban, Column, Images, Code blocks
+    return BlockType::RegularText;
 }
 
 BlockInfo::BlockType BlockInfo::determineBlockType(QString text)
@@ -150,7 +201,9 @@ BlockInfo::BlockType BlockInfo::determineBlockType(QString text)
         }
     }
 
-    if (isNumberedList(text)) {
+    QString numberedListDelimiter = findNumberedList(text);
+    if (!numberedListDelimiter.isEmpty()) {
+        setBlockDelimiter(numberedListDelimiter);
         setBlockType(BlockType::NumberedListItem);
         return BlockType::NumberedListItem;
     }

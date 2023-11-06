@@ -7,3 +7,6 @@
 [submodule "3rdParty/QSimpleUpdater"]
 	path = 3rdParty/QSimpleUpdater
 	url = https://github.com/alex-spataru/QSimpleUpdater
+[submodule "3rdParty/html2md"]
+	path = 3rdParty/html2md
+	url = https://github.com/tim-gromeyer/html2md.git

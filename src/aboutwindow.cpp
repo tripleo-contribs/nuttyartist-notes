@@ -81,7 +81,8 @@ void AboutWindow::setAboutText()
 #if defined(UPDATE_CHECKER)
               "QSimpleUpdater<br/>"
 #endif
-              "QAutostart<br/>QXT<br/><br/><strong>Notes makes use of the following open source "
+              "QAutostart<br/>QXT<br/>MD4C<br/>html2md (by Tim Gromeyer)<br/><br/><strong>Notes "
+              "makes use of the following open source "
               "fonts:</strong><br/><br/>Roboto<br/>Source Sans Pro<br/>Trykker<br/>Mate<br/>iA "
               "Writer Mono<br/>iA Writer Duo<br/>iA Writer "
               "Quattro<br/>Font Awesome<br/>Material Symbols<br/><br/><strong>Qt version:</strong> "

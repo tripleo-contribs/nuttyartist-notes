@@ -346,6 +346,7 @@ private slots:
     bool isTitleBar(int x, int y) const;
 
 signals:
+    void mainWindowDeactivated();
     void requestNodesTree();
     void requestOpenDBManager(const QString &path, bool doCreate);
     void requestRestoreNotes(const QString &filePath);
