@@ -1157,14 +1157,14 @@ Rectangle {
                            console.log("REDO QML");
                            event.accepted = true;
                            BlockModel.redo();
-                           if (root.selectedBlockIndexes.length > 0)
+                           if (root.selectedBlock === null || (root.selectedBlock && root.isBlockOutOfView(root.selectedBlock)))
                                 blockEditorView.positionViewAtIndex(root.selectedBlockIndexes[0], ListView.Center);
                            return;
                         } else if (!root.isHoldingShift && root.isHoldingControl && event.key === Qt.Key_Z) { // TODO: Why Qt.Key_Undo doesn't work?
                            console.log("UNDO QML");
                            event.accepted = true;
                            BlockModel.undo();
-                           if (root.selectedBlockIndexes.length > 0)
+                           if (root.selectedBlock === null || (root.selectedBlock && root.isBlockOutOfView(root.selectedBlock)))
                                 blockEditorView.positionViewAtIndex(root.selectedBlockIndexes[0], ListView.Center);
                            return;
                         }
