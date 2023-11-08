@@ -15,7 +15,6 @@
 #include <QToolButton>
 #include <QVBoxLayout>
 #include <QLabel>
-#include <QTextEdit>
 #include <QSettings>
 #include <QSplitter>
 #include <QSystemTrayIcon>
@@ -110,16 +109,15 @@ public:
     void setMainWindowVisibility(bool state);
 
 public slots:
+    void createNewNote();
     void saveLastSelectedFolderTags(bool isFolder, const QString &folderPath,
                                     const QSet<int> &tagId);
     void saveExpandedFolder(const QStringList &folderPaths);
     void saveLastSelectedNote(const QSet<int> &notesId);
     void changeEditorFontTypeFromStyleButtons(FontTypeface::Value fontType, int chosenFontIndex);
     void changeEditorFontSizeFromStyleButtons(FontSizeAction::Value fontSizeAction);
-    void changeEditorTextWidthFromStyleButtons(EditorTextWidth::Value editorTextWidth);
     void resetEditorSettings();
     void setTheme(Theme::Value theme);
-    void setKanbanVisibility(bool isVisible);
     void collapseNoteList();
     void expandNoteList();
     void collapseFolderTree();
@@ -127,7 +125,6 @@ public slots:
     void setMarkdownEnabled(bool isMarkdownEnabled);
     void stayOnTop(bool checked);
     void moveCurrentNoteToTrash();
-    void toggleEditorSettings();
     void setEditorSettingsFromQuickViewVisibility(bool isVisible);
     void setEditorSettingsScrollBarPosition(double position);
     void setActivationSuccessful();
@@ -156,15 +153,10 @@ private:
     QPushButton *m_yellowMinimizeButton;
     QHBoxLayout m_trafficLightLayout;
     QPushButton *m_newNoteButton;
-    QPushButton *m_dotsButton;
     QPushButton *m_globalSettingsButton;
     QPushButton *m_toggleTreeViewButton;
-    QPushButton *m_switchToTextViewButton;
-    QPushButton *m_switchToKanbanViewButton;
-    CustomDocument *m_textEdit;
     NoteEditorLogic *m_noteEditorLogic;
     QLineEdit *m_searchEdit;
-    QLabel *m_editorDateLabel;
     QSplitter *m_splitter;
     QWidget *m_noteListWidget;
     QWidget *m_foldersWidget;
@@ -181,8 +173,8 @@ private:
     NodeTreeModel *m_treeModel;
     TreeViewLogic *m_treeViewLogic;
 #if QT_VERSION >= QT_VERSION_CHECK(6, 2, 0)
-    QQuickView m_kanbanQuickView;
-    QWidget *m_kanbanWidget;
+    QQuickView m_blockEditorQuickView;
+    QWidget *m_blockEditorWidget;
 #endif
     QQuickView m_editorSettingsQuickView;
     QWidget *m_editorSettingsWidget;
@@ -239,18 +231,11 @@ private:
     Theme::Value m_currentTheme;
     QColor m_currentEditorTextColor;
     bool m_areNonEditorWidgetsVisible;
-#if !defined(Q_OS_MAC)
-    QTimer *m_textEditScrollBarTimer;
-    int m_textEditScrollBarTimerDuration;
-#endif
-    bool m_isFrameRightTopWidgetsVisible;
     bool m_isEditorSettingsFromQuickViewVisible;
     bool m_isProVersionActivated;
     QSettings *m_localLicenseData;
     BlockModel *m_blockModel;
 
-    bool alreadyAppliedFormat(const QString &formatChars);
-    void applyFormat(const QString &formatChars);
     void setupMainWindow();
     void setupFonts();
     void setupTrayIcon();
@@ -263,33 +248,24 @@ private:
 #endif
     void setupSearchEdit();
     void setupEditorSettings();
-    void setupTextEditStyleSheet(int paddingLeft, int paddingRight);
-    void alignTextEditText();
     void setupTextEdit();
-#if QT_VERSION >= QT_VERSION_CHECK(6, 2, 0)
-    void setupKanbanView();
-#endif
+    void setupBlockEditorView();
     void setupDatabases();
     void setupModelView();
     void initializeSettingsDatabase();
     void setLayoutForScrollArea();
     void setButtonsAndFieldsEnabled(bool doEnable);
-    void resetFormat(const QString &formatChars);
     void restoreStates();
     void migrateFromV0_9_0();
     void executeImport(const bool replace);
     void migrateNoteFromV0_9_0(const QString &notePath);
     void migrateTrashFromV0_9_0(const QString &trashPath);
     void setCurrentFontBasedOnTypeface(FontTypeface::Value selectedFontTypeFace);
-    void setVisibilityOfFrameRightWidgets(bool isVisible);
-    void setVisibilityOfFrameRightNonEditor(bool isVisible);
     void setWindowButtonsVisible(bool isVisible);
-    void showEditorSettings();
     void updateSelectedOptionsEditorSettings();
     void dropShadow(QPainter &painter, ShadowType type, ShadowSide side);
     void fillRectWithGradient(QPainter &painter, QRect rect, QGradient &gradient);
     double gaussianDist(double x, const double center, double sigma) const;
-    void resizeAndPositionEditorSettingsWindow();
     void checkProVersion();
 
     void setMargins(QMargins margins);
@@ -299,8 +275,6 @@ private slots:
 
     void onSystemTrayIconActivated(QSystemTrayIcon::ActivationReason reason);
     void onNewNoteButtonClicked();
-    void onDotsButtonClicked();
-    void onSwitchToKanbanViewButtonClicked();
     void onGlobalSettingsButtonClicked();
     void onClearButtonClicked();
     void onGreenMaximizeButtonPressed();
@@ -309,16 +283,10 @@ private slots:
     void onGreenMaximizeButtonClicked();
     void onYellowMinimizeButtonClicked();
     void onRedCloseButtonClicked();
-    void resetBlockFormat();
-    void createNewNote();
     void selectNoteDown();
     void selectNoteUp();
     void setFocusOnText();
     void fullscreenWindow();
-    void makeCode();
-    void makeBold();
-    void makeItalic();
-    void makeStrikethrough();
     void maximizeWindow();
     void minimizeWindow();
     void QuitApplication();
@@ -330,9 +298,6 @@ private slots:
     void importNotesFile();
     void exportNotesFile();
     void restoreNotesFile();
-    void increaseHeading();
-    void decreaseHeading();
-    void setHeading(int level);
     void setUseNativeWindowFrame(bool useNativeWindowFrame);
     void setHideToTray(bool enabled);
     void toggleStayOnTop();
@@ -346,6 +311,7 @@ private slots:
     bool isTitleBar(int x, int y) const;
 
 signals:
+    void focusOnEditor();
     void mainWindowDeactivated();
     void requestNodesTree();
     void requestOpenDBManager(const QString &path, bool doCreate);

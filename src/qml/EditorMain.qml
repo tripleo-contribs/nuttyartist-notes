@@ -28,7 +28,6 @@ Rectangle {
                                                root.currentFontPointBaseSize + 1
                                            }
                                        }
-    property string currentEditorTextColor: root.themeData.theme === "Dark" ? "white" : "black"
     property int pointSizeOffset: platform === "Apple" ? 0: -3
 
     FontIconLoader {
@@ -71,7 +70,6 @@ Rectangle {
                             root.currentFontTypeface === "Mono" ?
                                 root.listOfMonoFonts[root.chosenMonoFontIndex] : "";
             root.currentFontPointBaseSize = data.currentFontPointSize;
-            root.currentEditorTextColor = data.currentEditorTextColor;
         }
 
         function onMainWindowDeactivated () {
@@ -79,8 +77,19 @@ Rectangle {
             root.isHoldingShift = false;
             root.isHoldingCapsLock = false;
         }
+
+        function onFocusOnEditor () {
+            var blockIndex = blockEditorView.indexAt(0, blockEditorView.contentY);
+            if (blockIndex === -1) {
+                blockIndex = 0;
+            }
+            var block = blockEditorView.itemAtIndex(blockIndex);
+            root.blockToFocusOn(blockIndex);
+            block.textEditorPointer.forceActiveFocus();
+        }
     }
 
+    property string currentEditorTextColor: root.themeData.theme === "Dark" ? "#dfe0e0" : "#1a1a1a"
     property int editorRightLeftPadding: if (blockEditorView.width <= 420) {
                                              18
                                          } else if (blockEditorView.width > 420 && blockEditorView.width <= 515) {
@@ -133,6 +142,8 @@ Rectangle {
     property rect lastCursorRect: Qt.rect(0,0,0,0)
     property string currentHoveredLink: ""
     property bool isPasting: false
+    property bool showBlockEditor: true
+    property bool isNothingLoaded: false
 
     Connections {
         target: BlockModel
@@ -144,7 +155,8 @@ Rectangle {
         function onTextChangeFinished() {
 //            console.log("In onTextChangeFinished:", root.lastCursorPos);
             root.isProgrammaticChange = false;
-            root.selectedBlock.textEditorPointer.cursorPosition = root.lastCursorPos;
+            if (root.selectedBlock)
+                root.selectedBlock.textEditorPointer.cursorPosition = root.lastCursorPos;
         }
 
         function onAboutToLoadText() {
@@ -157,6 +169,11 @@ Rectangle {
             root.isHoldingCapsLock = false;
             root.isProgrammaticChange = false;
             blockEditorView.positionViewAtIndex(data.itemIndexInView, ListView.Beginning);
+            if (!root.showBlockEditor) {
+                plainTextEditor.isProgrammaticChange = true;
+                plainTextEditor.text = BlockModel.getSourceText();
+                plainTextEditor.isProgrammaticChange = false;
+            }
         }
 
         function onNewBlockCreated(blockIndex : int) {
@@ -191,7 +208,9 @@ Rectangle {
 //            console.log("lastBlockSelectionEnd:", lastBlockSelectionEnd);
         }
 
-
+        function onNothingLoaded () {
+            root.isNothingLoaded = true;
+        }
     }
 
     function focusOnBlockHelper (blockIndex: int) {
@@ -454,14 +473,117 @@ Rectangle {
 //        }
 //    }
 
+    SwitchButton {
+        id: toggleBlockEditorButton
+        anchors.top: parent.top
+        anchors.horizontalCenter: parent.horizontalCenter
+        checkable: true
+        themeData: root.themeData
+        checked: root.showBlockEditor
+
+        onClicked: {
+            if (root.showBlockEditor) {
+                plainTextEditor.isProgrammaticChange = true;
+                plainTextEditor.text = BlockModel.getSourceText();
+                plainTextEditor.isProgrammaticChange = false;
+            } else {
+                BlockModel.loadText(BlockModel.getSourceText());
+            }
+
+            root.showBlockEditor = !root.showBlockEditor;
+        }
+    }
+
+    ScrollView {
+        id: plainTextEditorScrollView
+        anchors.top: toggleBlockEditorButton.bottom
+        width: parent.width
+        height: parent.height - toggleBlockEditorButton.height
+        visible: !root.showBlockEditor
+
+        TextArea {
+            id: plainTextEditor
+            text: ""
+            enabled: !root.showBlockEditor
+            visible: !root.showBlockEditor
+//            topPadding: 45
+            property bool isProgrammaticChange: true
+            bottomPadding: 45
+            rightPadding: root.editorRightLeftPadding
+            leftPadding: root.editorRightLeftPadding
+            color: root.currentEditorTextColor
+            font.pointSize: root.currentFontPointSize
+            font.family: root.currentlySelectedFontFamily
+            wrapMode: TextArea.WordWrap
+            background: Rectangle {
+                color: root.themeData.backgroundColor
+            }
+            textFormat: TextArea.PlainText
+
+            onTextChanged: {
+                if (!isProgrammaticChange) {
+                    savePlainTextTimer.restart();
+                }
+            }
+
+            Timer {
+                id: savePlainTextTimer
+                interval: 100
+
+                onTriggered: {
+                    BlockModel.setSourceText(plainTextEditor.text);
+                }
+            }
+        }
+
+        MarkdownHighlighter {
+            id: syntaxHighlighter
+            textDocument: plainTextEditor.textDocument
+        }
+
+        ScrollBar.vertical: CustomVerticalScrollBar {
+            themeData: root.themeData
+            isDarkGray: true
+            showBackground: true
+        }
+    }
+
+    Rectangle {
+        color: root.themeData.backgroundColor
+        anchors.fill: blockEditorView
+        visible: root.isNothingLoaded && blockEditorView.count === 0
+
+        MouseArea {
+            anchors.fill: parent
+
+            onClicked: {
+                root.isNothingLoaded = false;
+                mainWindow.createNewNote();
+            }
+        }
+
+        Text {
+            width: implicitWidth < parent.width - 50 ? implicitWidth : parent.width - 50
+            anchors.centerIn: parent
+            visible: root.isNothingLoaded
+            color: root.currentEditorTextColor
+            wrapMode: Text.WordWrap
+            text: "Click anywhere to create a new note."
+            font.pointSize: 20 + root.pointSizeOffset
+        }
+    }
+
     ListView {
         id: blockEditorView
         clip: true
         model: BlockModel
-        topMargin: 45
+//        topMargin: 45
         bottomMargin: 45
-        anchors.fill: parent
+        anchors.top: toggleBlockEditorButton.bottom
+        width: parent.width
+        height: parent.height - toggleBlockEditorButton.height
         reuseItems: true // Gives huge performance boost
+        visible: root.showBlockEditor
 
         Keys.onPressed: (event) => {
             if (event.key === Qt.Key_Down || event.key === Qt.Key_Up ||
@@ -728,7 +850,7 @@ Rectangle {
 
             Row {
                 id: delimiterAndTextRow
-                property real delimiterAndTextRowX: editorRightLeftPadding + delegate.blockIndentLevel * root.defaultIndentWidth - (delegate.blockType === BlockInfo.Todo ? todoDelimiter.width/2 + 2 : 0)
+                property real delimiterAndTextRowX: root.editorRightLeftPadding + delegate.blockIndentLevel * root.defaultIndentWidth - (delegate.blockType === BlockInfo.Todo ? todoDelimiter.width/2 + 2 : 0)
 
                 Behavior on x {
                     enabled: !delegate.isPooled
@@ -773,14 +895,14 @@ Rectangle {
                     color: root.selectedBlockIndexes.length > 1 && root.selectedBlockIndexes.includes(delegate.index) ? root.selectionColor : root.themeData.backgroundColor
                     height: delegate.height //- 2
 //                    y: 1
-                    width: root.editorWidth - delimiterAndTextRow.x - editorRightLeftPadding
+                    width: root.editorWidth - delimiterAndTextRow.x - root.editorRightLeftPadding
 
                     Rectangle {
                         id: dividerDelimiter
                         visible: delegate.blockType === BlockInfo.Divider
                         anchors.verticalCenter: parent.verticalCenter
                         height: 1
-                        width: root.editorWidth - delimiterAndTextRow.x - editorRightLeftPadding
+                        width: root.editorWidth - delimiterAndTextRow.x - root.editorRightLeftPadding
                         color: root.themeData.theme === "Dark" ? "#525354" : "#d9d9d9"
                     }
                 }
@@ -912,7 +1034,7 @@ Rectangle {
                                        1.8
                                    }
                     padding: 0
-                    width: root.editorWidth - delimiterAndTextRow.x - x - editorRightLeftPadding
+                    width: root.editorWidth - delimiterAndTextRow.x - x - root.editorRightLeftPadding
                     height: implicitHeight
                     wrapMode: TextArea.WordWrap
                     readOnly: delegate.blockType === BlockInfo.Divider
@@ -1645,6 +1767,7 @@ Rectangle {
 
     MouseArea {
         id: selectionArea
+        visible: root.showBlockEditor
         propagateComposedEvents: true
         property int selStartIndex: -1
         property int selEndIndex: -1
@@ -1667,7 +1790,7 @@ Rectangle {
 
         signal selectionChanged
 
-        anchors.fill: parent
+        anchors.fill: blockEditorView
         enabled: !verticalScrollBar.hovered
         cursorShape: selectionArea.enabled ? Qt.IBeamCursor : Qt.ArrowCursor
 

@@ -49,6 +49,7 @@ public slots:
     void onNotesListInTagsRequested(const QSet<int> &tagIds, bool newNote, int scrollToId);
     void selectNotes(const QModelIndexList &indexes);
 signals:
+    void noNotesInFolder();
     void showNotesInEditor(const QVector<NodeData> &notesData);
     void requestAddTagDb(int noteId, int tagId);
     void requestRemoveTagDb(int noteId, int tagId);

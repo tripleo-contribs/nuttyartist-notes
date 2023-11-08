@@ -15,25 +15,11 @@
 
 #define FIRST_LINE_MAX 80
 
-#if QT_VERSION >= QT_VERSION_CHECK(6, 2, 0)
-
-NoteEditorLogic::NoteEditorLogic(CustomDocument *textEdit, QLabel *editorDateLabel,
-                                 QLineEdit *searchEdit, QWidget *kanbanWidget,
-                                 TagListView *tagListView, TagPool *tagPool, DBManager *dbManager,
-                                 BlockModel *blockModel, QObject *parent)
-#else
-NoteEditorLogic::NoteEditorLogic(CustomDocument *textEdit, QLabel *editorDateLabel,
-                                 QLineEdit *searchEdit, TagListView *tagListView, TagPool *tagPool,
-                                 DBManager *dbManager, QObject *parent)
-#endif
+NoteEditorLogic::NoteEditorLogic(QLineEdit *searchEdit, TagListView *tagListView, TagPool *tagPool,
+                                 DBManager *dbManager, BlockModel *blockModel, QObject *parent)
     : QObject(parent),
-      m_textEdit{ textEdit },
-      m_highlighter{ new CustomMarkdownHighlighter{ m_textEdit->document() } },
-      m_editorDateLabel{ editorDateLabel },
+      m_highlighter{ new CustomMarkdownHighlighter{ new QTextDocument() } },
       m_searchEdit{ searchEdit },
-#if QT_VERSION >= QT_VERSION_CHECK(6, 2, 0)
-      m_kanbanWidget{ kanbanWidget },
-#endif
       m_tagListView{ tagListView },
       m_dbManager{ dbManager },
       m_isContentModified{ false },
@@ -59,7 +45,6 @@ NoteEditorLogic::NoteEditorLogic(CustomDocument *textEdit, QLabel *editorDateLab
                                 "valid";
                 }
             });
-    connect(m_textEdit, &QTextEdit::textChanged, this, &NoteEditorLogic::onTextEditTextChanged);
     connect(this, &NoteEditorLogic::requestCreateUpdateNote, m_dbManager,
             &DBManager::onCreateUpdateRequestedNoteContent, Qt::QueuedConnection);
     // auto save timer
@@ -72,48 +57,11 @@ NoteEditorLogic::NoteEditorLogic(CustomDocument *textEdit, QLabel *editorDateLab
     m_tagListDelegate = new TagListDelegate{ this };
     m_tagListView->setItemDelegate(m_tagListDelegate);
     connect(tagPool, &TagPool::dataUpdated, this, [this](int) { showTagListForCurrentNote(); });
-    connect(m_textEdit->verticalScrollBar(), &QScrollBar::valueChanged, this, [this](int value) {
-        if (m_currentNotes.size() == 1 && m_currentNotes[0].id() != SpecialNodeID::InvalidNodeId) {
-            m_currentNotes[0].setScrollBarPosition(value);
-            emit updateNoteDataInList(m_currentNotes[0]);
-            m_isContentModified = true;
-            m_autoSaveTimer.start();
-        }
-    });
-#if QT_VERSION >= QT_VERSION_CHECK(6, 2, 0)
-    connect(this, &NoteEditorLogic::showKanbanView, this, [this]() {
-        if (m_kanbanWidget != nullptr) {
-            emit setVisibilityOfFrameRightNonEditor(false);
-            bool shouldRecheck = checkForTasksInEditor();
-            //            if (shouldRecheck) {
-            //                checkForTasksInEditor();
-            //            }
-            m_kanbanWidget->show();
-            m_textEdit->hide();
-            m_textEdit->clearFocus();
-            emit kanbanShown();
-        }
-    });
-    connect(this, &NoteEditorLogic::hideKanbanView, this, [this]() {
-        if (m_kanbanWidget != nullptr) {
-            emit setVisibilityOfFrameRightNonEditor(true);
-            m_kanbanWidget->hide();
-            m_textEdit->show();
-            emit clearKanbanModel();
-            emit textShown();
-        }
-    });
-#endif
 }
 
 bool NoteEditorLogic::markdownEnabled() const
 {
     return m_highlighter->document() != nullptr;
-}
-
-void NoteEditorLogic::setMarkdownEnabled(bool enabled)
-{
-    m_highlighter->setDocument(enabled ? m_textEdit->document() : nullptr);
 }
 
 void NoteEditorLogic::showNotesInEditor(const QVector<NodeData> &notes)
@@ -125,57 +73,23 @@ void NoteEditorLogic::showNotesInEditor(const QVector<NodeData> &notes)
         }
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 2, 0)
-        emit resetKanbanSettings();
         emit checkMultipleNotesSelected(
                 QVariant(false)); // TODO: if not PRO version, should be true
 #endif
 
-        m_textEdit->blockSignals(true);
-
         m_currentNotes = notes;
         showTagListForCurrentNote();
-        //     fixing bug #202
-        m_textEdit->setTextBackgroundColor(QColor(247, 247, 247, 0));
 
         QString content = notes[0].content();
         QDateTime dateTime = notes[0].lastModificationdateTime();
         int scrollbarPos = notes[0].scrollBarPosition();
 
-        //         set text and date
-        //        bool isTextChanged = content != m_textEdit->toPlainText();
-        //        if (isTextChanged) {
-        m_textEdit->setText(content);
         m_blockModel->setVerticalScrollBarPosition(0, scrollbarPos);
         m_blockModel->loadText(content);
 
-        //        }
-        //        m_blockModel->loadText(content);
-
         QString noteDate = dateTime.toString(Qt::ISODate);
         QString noteDateEditor = getNoteDateEditor(noteDate);
-        m_editorDateLabel->setText(noteDateEditor);
-        // set scrollbar position
-        m_textEdit->verticalScrollBar()->setValue(scrollbarPos);
-        m_textEdit->blockSignals(false);
-        m_textEdit->setReadOnly(false);
-        m_textEdit->setTextInteractionFlags(Qt::TextEditorInteraction);
-        m_textEdit->setFocusPolicy(Qt::StrongFocus);
         highlightSearch();
-#if QT_VERSION >= QT_VERSION_CHECK(6, 2, 0)
-        if (m_kanbanWidget != nullptr && m_kanbanWidget->isVisible()) {
-            emit clearKanbanModel();
-            //            bool shouldRecheck = checkForTasksInEditor();
-            //            if (shouldRecheck) {
-            //                checkForTasksInEditor();
-            //            }
-            m_textEdit->setVisible(false);
-            return;
-        } else {
-            m_textEdit->setVisible(true);
-        }
-#else
-        m_textEdit->setVisible(true);
-#endif
         emit textShown();
     } else if (notes.size() > 1) {
 #if QT_VERSION >= QT_VERSION_CHECK(6, 2, 0)
@@ -183,44 +97,10 @@ void NoteEditorLogic::showNotesInEditor(const QVector<NodeData> &notes)
 #endif
         m_currentNotes = notes;
         m_tagListView->setVisible(false);
-        m_textEdit->blockSignals(true);
-        auto verticalScrollBarValueToRestore = m_textEdit->verticalScrollBar()->value();
-        m_textEdit->clear();
-        auto padding = m_currentAdaptableEditorPadding > m_currentMinimumEditorPadding
-                ? m_currentAdaptableEditorPadding
-                : m_currentMinimumEditorPadding;
-        QPixmap sep(QSize{ m_textEdit->width() - padding * 2 - 12, 4 });
-        sep.fill(Qt::transparent);
-        QPainter painter(&sep);
-        painter.setPen(m_spacerColor);
-        painter.drawRect(0, 1, sep.width(), 1);
-        m_textEdit->document()->addResource(QTextDocument::ImageResource, QUrl("mydata://sep.png"),
-                                            sep);
-        for (int i = 0; i < notes.size(); ++i) {
-            auto cursor = m_textEdit->textCursor();
-            cursor.movePosition(QTextCursor::End);
-            if (!notes[i].content().endsWith("\n")) {
-                if (i != 0) {
-                    cursor.insertText("\n" + notes[i].content() + "\n");
-                } else {
-                    cursor.insertText(notes[i].content() + "\n");
-                }
-            } else {
-                cursor.insertText(notes[i].content());
-            }
-            if (i != notes.size() - 1) {
-                cursor.movePosition(QTextCursor::End);
-                cursor.insertText("\n");
-                cursor.insertImage("mydata://sep.png");
-                cursor.insertText("\n");
-            }
-        }
-        m_textEdit->verticalScrollBar()->setValue(verticalScrollBarValueToRestore);
-        m_textEdit->blockSignals(false);
-        m_textEdit->setReadOnly(true);
-        m_textEdit->setTextInteractionFlags(Qt::TextSelectableByMouse);
-        m_textEdit->setFocusPolicy(Qt::NoFocus);
         highlightSearch();
+    } else {
+        qDebug() << "NoteEditorLogic::showNotesInEditor() : Invalid node id";
+        m_blockModel->setNothingLoaded();
     }
 }
 
@@ -237,52 +117,16 @@ void NoteEditorLogic::onBlockModelTextChanged()
             QString firstline = getFirstLine(sourceDocumentPlainText);
             QDateTime dateTime = QDateTime::currentDateTime();
             QString noteDate = dateTime.toString(Qt::ISODate);
-            m_editorDateLabel->setText(NoteEditorLogic::getNoteDateEditor(noteDate));
             // update note data
             m_currentNotes[0].setContent(sourceDocumentPlainText);
             m_currentNotes[0].setFullTitle(firstline);
             m_currentNotes[0].setLastModificationDateTime(dateTime);
             m_currentNotes[0].setIsTempNote(false);
-            // TODO
-            //            m_currentNotes[0].setScrollBarPosition(m_textEdit->verticalScrollBar()->value());
-            // update note data in list view
             emit updateNoteDataInList(m_currentNotes[0]);
             m_isContentModified = true;
             m_autoSaveTimer.start();
             emit setVisibilityOfFrameRightWidgets(false);
         }
-    } else {
-        qDebug() << "NoteEditorLogic::onTextEditTextChanged() : m_currentNote is not valid";
-    }
-}
-
-void NoteEditorLogic::onTextEditTextChanged()
-{
-    if (currentEditingNoteId() != SpecialNodeID::InvalidNodeId) {
-        m_textEdit->blockSignals(true);
-        QString content = m_currentNotes[0].content();
-        if (m_textEdit->toPlainText() != content) {
-            // move note to the top of the list
-            emit moveNoteToListViewTop(m_currentNotes[0]);
-
-            // Get the new data
-            QString firstline = getFirstLine(m_textEdit->toPlainText());
-            QDateTime dateTime = QDateTime::currentDateTime();
-            QString noteDate = dateTime.toString(Qt::ISODate);
-            m_editorDateLabel->setText(NoteEditorLogic::getNoteDateEditor(noteDate));
-            // update note data
-            m_currentNotes[0].setContent(m_textEdit->toPlainText());
-            m_currentNotes[0].setFullTitle(firstline);
-            m_currentNotes[0].setLastModificationDateTime(dateTime);
-            m_currentNotes[0].setIsTempNote(false);
-            m_currentNotes[0].setScrollBarPosition(m_textEdit->verticalScrollBar()->value());
-            // update note data in list view
-            emit updateNoteDataInList(m_currentNotes[0]);
-            m_isContentModified = true;
-            m_autoSaveTimer.start();
-            emit setVisibilityOfFrameRightWidgets(false);
-        }
-        m_textEdit->blockSignals(false);
     } else {
         qDebug() << "NoteEditorLogic::onTextEditTextChanged() : m_currentNote is not valid";
     }
@@ -293,7 +137,7 @@ void NoteEditorLogic::onTextEditTextChanged()
 void NoteEditorLogic::rearrangeTasksInTextEditor(int startLinePosition, int endLinePosition,
                                                  int newLinePosition)
 {
-    QTextDocument *document = m_textEdit->document();
+    QTextDocument *document = new QTextDocument();
     QTextCursor cursor(document);
     cursor.setPosition(document->findBlockByNumber(startLinePosition).position());
     cursor.setPosition(document->findBlockByNumber(endLinePosition).position(),
@@ -328,7 +172,7 @@ void NoteEditorLogic::rearrangeTasksInTextEditor(int startLinePosition, int endL
 void NoteEditorLogic::rearrangeColumnsInTextEditor(int startLinePosition, int endLinePosition,
                                                    int newLinePosition)
 {
-    QTextDocument *document = m_textEdit->document();
+    QTextDocument *document = new QTextDocument();
     QTextCursor cursor(document);
     cursor.setPosition(document->findBlockByNumber(startLinePosition).position());
     cursor.setPosition(document->findBlockByNumber(endLinePosition).position(),
@@ -383,7 +227,7 @@ QMap<QString, int> NoteEditorLogic::getTaskDataInLine(const QString &line)
 
 void NoteEditorLogic::checkTaskInLine(int lineNumber)
 {
-    QTextDocument *document = m_textEdit->document();
+    QTextDocument *document = new QTextDocument();
     QTextBlock block = document->findBlockByLineNumber(lineNumber);
 
     if (block.isValid()) {
@@ -401,7 +245,7 @@ void NoteEditorLogic::checkTaskInLine(int lineNumber)
 
 void NoteEditorLogic::uncheckTaskInLine(int lineNumber)
 {
-    QTextDocument *document = m_textEdit->document();
+    QTextDocument *document = new QTextDocument();
     QTextBlock block = document->findBlockByLineNumber(lineNumber);
 
     if (block.isValid()) {
@@ -420,7 +264,7 @@ void NoteEditorLogic::uncheckTaskInLine(int lineNumber)
 void NoteEditorLogic::replaceTextBetweenLines(int startLinePosition, int endLinePosition,
                                               QString &newText)
 {
-    QTextDocument *document = m_textEdit->document();
+    QTextDocument *document = new QTextDocument();
     QTextBlock startBlock = document->findBlockByLineNumber(startLinePosition);
     QTextBlock endBlock = document->findBlockByLineNumber(endLinePosition);
     QTextCursor cursor(startBlock);
@@ -432,7 +276,7 @@ void NoteEditorLogic::replaceTextBetweenLines(int startLinePosition, int endLine
 void NoteEditorLogic::updateTaskText(int startLinePosition, int endLinePosition,
                                      const QString &newText)
 {
-    QTextDocument *document = m_textEdit->document();
+    QTextDocument *document = new QTextDocument();
     QTextBlock block = document->findBlockByLineNumber(startLinePosition);
     if (block.isValid()) {
         QMap<QString, int> taskData = getTaskDataInLine(block.text());
@@ -478,7 +322,7 @@ void NoteEditorLogic::updateTaskText(int startLinePosition, int endLinePosition,
 void NoteEditorLogic::addNewTask(int startLinePosition, const QString newTaskText)
 {
     QString newText = "\n- [ ] " + newTaskText;
-    QTextDocument *document = m_textEdit->document();
+    QTextDocument *document = new QTextDocument();
     QTextBlock startBlock = document->findBlockByLineNumber(startLinePosition);
 
     if (!startBlock.isValid())
@@ -497,7 +341,7 @@ void NoteEditorLogic::removeTextBetweenLines(int startLinePosition, int endLineP
         return;
     }
 
-    QTextDocument *document = m_textEdit->document();
+    QTextDocument *document = new QTextDocument();
     QTextCursor cursor(document);
     cursor.setPosition(document->findBlockByNumber(startLinePosition).position());
     cursor.setPosition(document->findBlockByNumber(endLinePosition).position(),
@@ -520,7 +364,7 @@ void NoteEditorLogic::addNewColumn(int startLinePosition, const QString &columnT
     if (startLinePosition < 0)
         return;
 
-    QTextDocument *document = m_textEdit->document();
+    QTextDocument *document = new QTextDocument();
     QTextBlock block = document->findBlockByNumber(startLinePosition);
 
     if (block.isValid()) {
@@ -531,9 +375,9 @@ void NoteEditorLogic::addNewColumn(int startLinePosition, const QString &columnT
             cursor.movePosition(QTextCursor::EndOfBlock);
         }
         cursor.insertText(columnTitle);
-        m_textEdit->setTextCursor(cursor);
+        //        m_textEdit->setTextCursor(cursor);
     } else {
-        m_textEdit->append(columnTitle);
+        //        m_textEdit->append(columnTitle);
     }
 
     checkForTasksInEditor();
@@ -545,7 +389,7 @@ void NoteEditorLogic::removeColumn(int startLinePosition, int endLinePosition)
 
     if (startLinePosition < 0 || endLinePosition < startLinePosition)
         return;
-    QTextDocument *document = m_textEdit->document();
+    QTextDocument *document = new QTextDocument();
     QTextCursor cursor(document);
     cursor.setPosition(document->findBlockByNumber(startLinePosition).position());
     if (cursor.block().isValid() && cursor.block().text().isEmpty()) {
@@ -558,7 +402,7 @@ void NoteEditorLogic::removeColumn(int startLinePosition, int endLinePosition)
 
 void NoteEditorLogic::updateColumnTitle(int lineNumber, const QString &newText)
 {
-    QTextDocument *document = m_textEdit->document();
+    QTextDocument *document = new QTextDocument();
     QTextBlock block = document->findBlockByLineNumber(lineNumber);
 
     if (block.isValid()) {
@@ -590,7 +434,7 @@ void NoteEditorLogic::updateColumnTitle(int lineNumber, const QString &newText)
 void NoteEditorLogic::addUntitledColumnToTextEditor(int startLinePosition)
 {
     QString columnTitle = "# Untitled\n\n";
-    QTextDocument *document = m_textEdit->document();
+    QTextDocument *document = new QTextDocument();
     QTextBlock block = document->findBlockByNumber(startLinePosition);
 
     if (block.isValid()) {
@@ -628,7 +472,8 @@ void NoteEditorLogic::appendNewColumn(QJsonArray &data, QJsonObject &currentColu
 // ])
 bool NoteEditorLogic::checkForTasksInEditor()
 {
-    QStringList lines = m_textEdit->toPlainText().split("\n");
+    //    QStringList lines = m_textEdit->toPlainText().split("\n");
+    QStringList lines = {};
     QJsonArray data;
     QJsonObject currentColumn;
     QJsonArray tasks;
@@ -780,16 +625,13 @@ void NoteEditorLogic::saveNoteToDB()
 
 void NoteEditorLogic::closeEditor()
 {
+    m_blockModel->setNothingLoaded();
     if (currentEditingNoteId() != SpecialNodeID::InvalidNodeId) {
         saveNoteToDB();
         emit noteEditClosed(m_currentNotes[0], false);
     }
     m_currentNotes.clear();
 
-    m_textEdit->blockSignals(true);
-    m_textEdit->clear();
-    m_textEdit->clearFocus();
-    m_textEdit->blockSignals(false);
     m_tagListModel->setModelData({});
 }
 
@@ -806,19 +648,11 @@ void NoteEditorLogic::deleteCurrentNote()
     if (isTempNote()) {
         auto noteNeedDeleted = m_currentNotes[0];
         m_currentNotes.clear();
-        m_textEdit->blockSignals(true);
-        m_textEdit->clear();
-        m_textEdit->clearFocus();
-        m_textEdit->blockSignals(false);
         emit noteEditClosed(noteNeedDeleted, true);
     } else if (currentEditingNoteId() != SpecialNodeID::InvalidNodeId) {
         auto noteNeedDeleted = m_currentNotes[0];
         saveNoteToDB();
         m_currentNotes.clear();
-        m_textEdit->blockSignals(true);
-        m_textEdit->clear();
-        m_textEdit->clearFocus();
-        m_textEdit->blockSignals(false);
         emit noteEditClosed(noteNeedDeleted, false);
         emit deleteNoteRequested(noteNeedDeleted);
     }
@@ -883,16 +717,6 @@ void NoteEditorLogic::setTheme(Theme::Value theme, QColor textColor, qreal fontS
         break;
     }
     }
-    if (currentEditingNoteId() != SpecialNodeID::InvalidNodeId) {
-        int verticalScrollBarValueToRestore = m_textEdit->verticalScrollBar()->value();
-        m_textEdit->setText(
-                m_textEdit->toPlainText()); // TODO: Update the text color without setting the text
-        m_textEdit->verticalScrollBar()->setValue(verticalScrollBarValueToRestore);
-    } else {
-        int verticalScrollBarValueToRestore = m_textEdit->verticalScrollBar()->value();
-        showNotesInEditor(m_currentNotes);
-        m_textEdit->verticalScrollBar()->setValue(verticalScrollBarValueToRestore);
-    }
 }
 
 QString NoteEditorLogic::getNoteDateEditor(const QString &dateEdited)
@@ -909,20 +733,6 @@ void NoteEditorLogic::highlightSearch() const
 
     if (searchString.isEmpty())
         return;
-
-    m_textEdit->moveCursor(QTextCursor::Start);
-
-    QList<QTextEdit::ExtraSelection> extraSelections;
-    QTextCharFormat highlightFormat;
-    highlightFormat.setBackground(Qt::yellow);
-
-    while (m_textEdit->find(searchString))
-        extraSelections.append({ m_textEdit->textCursor(), highlightFormat });
-
-    if (!extraSelections.isEmpty()) {
-        m_textEdit->setTextCursor(extraSelections.first().cursor);
-        m_textEdit->setExtraSelections(extraSelections);
-    }
 }
 
 bool NoteEditorLogic::isTempNote() const

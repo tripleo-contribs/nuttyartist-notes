@@ -268,6 +268,12 @@ void BlockModel::clear()
     endResetModel();
 }
 
+void BlockModel::setNothingLoaded()
+{
+    clear();
+    emit nothingLoaded();
+}
+
 void BlockModel::updateBlocksLinePositions(unsigned int blockPosition, int delta)
 {
     for (unsigned int i = blockPosition; i < m_blockList.length(); i++) {
@@ -1326,21 +1332,35 @@ void BlockModel::copy(QList<int> selectedBlockIndexes, int firstBlockSelectionSt
                       int lastBlockSelectionEndPos)
 {
     std::sort(selectedBlockIndexes.begin(), selectedBlockIndexes.end());
+    int firstSelectedBlockIndex = selectedBlockIndexes[0];
+    int lastSelectedBlockIndex = selectedBlockIndexes[selectedBlockIndexes.length() - 1];
     QString copiedText = "";
-
     QSharedPointer<BlockInfo> firstBlock = m_blockList[selectedBlockIndexes[0]];
     int lineBreakCount = firstBlock->textPlainText().count("<br />");
     int lineBreaksLength = (lineBreakCount * QStringLiteral("<br />").length()) - lineBreakCount;
-    int indentAndDelimiterAndLineBreaksLength = firstBlock->indentedString().length()
-            + firstBlock->blockDelimiter().length() + lineBreaksLength;
+    int indentAndDelimiterLength =
+            firstBlock->indentedString().length() + firstBlock->blockDelimiter().length();
+    int indentAndDelimiterAndLineBreaksLength = indentAndDelimiterLength + lineBreaksLength;
+
     if (firstBlockSelectionStartPos == 0
         && (selectedBlockIndexes.length() > 1
             || lastBlockSelectionEndPos + indentAndDelimiterAndLineBreaksLength
                     == firstBlock->textPlainText().length())) {
         copiedText += firstBlock->textPlainText();
+    } else if (firstSelectedBlockIndex == lastSelectedBlockIndex) {
+        // We need to replace the <br> with \n since in the QML editor lines breaks are one
+        // (unicode) character
+
+        copiedText += firstBlock->textPlainText()
+                              .replace("<br />", "\n")
+                              .mid(indentAndDelimiterLength + firstBlockSelectionStartPos,
+                                   lastBlockSelectionEndPos - firstBlockSelectionStartPos);
+        copiedText.replace("\n", "<br />");
     } else {
-        copiedText += firstBlock->textPlainText().mid(indentAndDelimiterAndLineBreaksLength
-                                                      + firstBlockSelectionStartPos);
+        copiedText += firstBlock->textPlainText()
+                              .replace("<br />", "\n")
+                              .mid(indentAndDelimiterLength + firstBlockSelectionStartPos);
+        copiedText.replace("\n", "<br />");
     }
 
     if (selectedBlockIndexes.length() > 2) {
@@ -1619,4 +1639,15 @@ void BlockModel::paste(QList<int> selectedBlockIndexes, int firstBlockSelectionS
         pasteMarkdown(clipboardMimeData->text(), selectedBlockIndexes, firstBlockSelectionStartPos,
                       lastBlockSelectionEndPos);
     }
+}
+
+QString BlockModel::getSourceText()
+{
+    return m_sourceDocument.toPlainText();
+}
+
+void BlockModel::setSourceText(const QString &text)
+{
+    m_sourceDocument.setPlainText(text);
+    emit textChangeFinished();
 }

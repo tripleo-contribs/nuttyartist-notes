@@ -73,8 +73,11 @@ public:
     QTextDocument *sourceDocument();
     static void processOutput(const MD_CHAR *output, MD_SIZE size, void *userdata);
     QString markdownToHtml(const QString &markdown);
+    void setNothingLoaded();
 
 public slots:
+    void setSourceText(const QString &text);
+    QString getSourceText();
     void paste(QList<int> selectedBlockIndexes, int firstBlockSelectionStartPos,
                int lastBlockSelectionEndPos);
     void copy(QList<int> selectedBlockIndexes, int firstBlockSelectionStartPos,
@@ -100,6 +103,7 @@ public slots:
     void clear();
 
 signals:
+    void nothingLoaded();
     void verticalScrollBarPositionChanged(double scrollBarPosition, int itemIndexInView);
     void restoreCursorPosition(int cursorPosition);
     void restoreSelection(int blockStartIndex, int blockEndIndex, int firstBlockSelectionStart,

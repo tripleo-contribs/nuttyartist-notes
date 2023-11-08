@@ -31,20 +31,11 @@ class NoteEditorLogic : public QObject
 {
     Q_OBJECT
 public:
-#if QT_VERSION >= QT_VERSION_CHECK(6, 2, 0)
-    explicit NoteEditorLogic(CustomDocument *textEdit, QLabel *editorDateLabel,
-                             QLineEdit *searchEdit, QWidget *kanbanWidget, TagListView *tagListView,
-                             TagPool *tagPool, DBManager *dbManager, BlockModel *blockModel,
+    explicit NoteEditorLogic(QLineEdit *searchEdit, TagListView *tagListView, TagPool *tagPool,
+                             DBManager *dbManager, BlockModel *blockModel,
                              QObject *parent = nullptr);
 
-#else
-    explicit NoteEditorLogic(CustomDocument *textEdit, QLabel *editorDateLabel,
-                             QLineEdit *searchEdit, TagListView *tagListView, TagPool *tagPool,
-                             DBManager *dbManager, QObject *parent = nullptr);
-#endif
-
     bool markdownEnabled() const;
-    void setMarkdownEnabled(bool enabled);
     static QString getNoteDateEditor(const QString &dateEdited);
     void highlightSearch() const;
     bool isTempNote() const;
@@ -64,7 +55,6 @@ public:
 
 public slots:
     void showNotesInEditor(const QVector<NodeData> &notes);
-    void onTextEditTextChanged();
     void onBlockModelTextChanged();
     void closeEditor();
     void onNoteTagListChanged(int noteId, const QSet<int> &tagIds);
@@ -91,8 +81,6 @@ signals:
     void moveNoteToListViewTop(const NodeData &note);
     void updateNoteDataInList(const NodeData &note);
     void deleteNoteRequested(const NodeData &note);
-    void showKanbanView();
-    void hideKanbanView();
     void textShown();
     void kanbanShown();
 #if QT_VERSION >= QT_VERSION_CHECK(6, 2, 0)
@@ -117,13 +105,8 @@ private:
     void addUntitledColumnToTextEditor(int startLinePosition);
 
 private:
-    CustomDocument *m_textEdit;
     CustomMarkdownHighlighter *m_highlighter;
-    QLabel *m_editorDateLabel;
     QLineEdit *m_searchEdit;
-#if QT_VERSION >= QT_VERSION_CHECK(6, 2, 0)
-    QWidget *m_kanbanWidget;
-#endif
     TagListView *m_tagListView;
     DBManager *m_dbManager;
     QVector<NodeData> m_currentNotes;
