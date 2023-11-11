@@ -147,7 +147,8 @@ private:
     void updateBlockText(QSharedPointer<BlockInfo> &blockInfo, const QString &plainText,
                          unsigned int lineStartPos, unsigned int lineEndPos);
     void updateBlocksLinePositions(unsigned int blockPosition, int delta);
-    void updateSourceTextBetweenLines(int startLinePos, int endLinePos, const QString &newText, bool shouldCreateUndo = true,
+    void updateSourceTextBetweenLines(
+            int startLinePos, int endLinePos, const QString &newText, bool shouldCreateUndo = true,
             int cursorPositionQML = 0, ActionType actionType = ActionType::Modify,
             OneCharOperation oneCharoperation = OneCharOperation::NoOneCharOperation,
             bool isForceMergeLastAction = false, int firstBlockSelectionStart = 0,

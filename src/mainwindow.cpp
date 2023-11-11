@@ -709,7 +709,8 @@ void MainWindow::setupSignalsSlots()
             &ListViewLogic::onNoteEditClosed);
     connect(m_listViewLogic, &ListViewLogic::requestClearSearchUI, this, &MainWindow::clearSearch);
     // Handle search in block model
-    connect(m_listViewLogic, &ListViewLogic::requestClearSearchUI, m_blockModel, &BlockModel::clearSearch);
+    connect(m_listViewLogic, &ListViewLogic::requestClearSearchUI, m_blockModel,
+            &BlockModel::clearSearch);
     connect(m_searchEdit, &QLineEdit::textChanged, m_blockModel,
             &BlockModel::onSearchEditTextChanged);
     connect(m_treeViewLogic, &TreeViewLogic::addNoteToTag, m_listViewLogic,
