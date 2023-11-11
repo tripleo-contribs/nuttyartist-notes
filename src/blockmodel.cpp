@@ -11,10 +11,14 @@ BlockModel::BlockModel(QObject *parent)
       m_textLineHeightInPercentage(125),
       m_blockIndexToFocusOn(0),
       m_undoStack({}),
-      m_redoStack({})
+      m_redoStack({}),
+      m_searchKeyword{""},
+      m_searchResultBlockIndexes{{}},
+      m_currentTheme(Theme::Light)
 {
     Q_UNUSED(parent);
     m_clipboard = QGuiApplication::clipboard();
+    m_sourceDocument.setUndoRedoEnabled(false); // We don't need this since we have our own undo/redo system
 }
 
 int BlockModel::rowCount(const QModelIndex &parent) const
@@ -133,21 +137,33 @@ void BlockModel::updateBlockText(QSharedPointer<BlockInfo> &blockInfo, const QSt
     QString htmlOutput = plainText.mid(blockInfo->indentedString().length()
                                        + blockInfo->blockDelimiter().length());
 
+    if (!m_searchKeyword.isEmpty()) {
+        int indexFound = htmlOutput.indexOf(m_searchKeyword, 0, Qt::CaseInsensitive);
+        while (indexFound != -1) {
+            QString savedKeyword = htmlOutput.mid(indexFound, m_searchKeyword.length());
+            QString newText = QStringLiteral("<span style=\"background-color: ") + (m_currentTheme == Theme::Dark ? "#454d56" : "#d3e6fb") + QStringLiteral("\">") + savedKeyword + "</span>";
+            htmlOutput.replace(indexFound, savedKeyword.length(), newText);
+            indexFound = htmlOutput.indexOf(m_searchKeyword, indexFound + savedKeyword.length() + newText.length() - 1, Qt::CaseInsensitive);
+            m_searchResultBlockIndexes << m_blockList.indexOf(blockInfo);
+        }
+    }
+
+//        qDebug() << "htmlOutput 0: " << htmlOutput;
     //    qDebug() << "BlockType (in updateBlockText): " << blockInfo->blockType();
     //    qDebug() << "htmlOutput 1: " << htmlOutput;
     htmlOutput = m_htmlMetaDataStart
             + (htmlOutput.length() < 2 ? htmlOutput : markdownToHtml(htmlOutput))
             + m_htmlMetaDataEnd;
-    //    qDebug() << "htmlOutput 2: " << htmlOutput;
+//        qDebug() << "htmlOutput 2: " << htmlOutput;
     if (blockInfo->blockType() != BlockInfo::BlockType::Heading) {
         htmlOutput.replace(
                 "<p>",
                 QStringLiteral("<p style=\"line-height:%1%;\">").arg(m_textLineHeightInPercentage));
-        if (!htmlOutput.contains("<p>"))
+        if (!htmlOutput.contains("</p>"))
             htmlOutput.replace("<body>",
                                QStringLiteral("<body style=\"line-height:%1%;\">")
                                        .arg(m_textLineHeightInPercentage));
-        //        qDebug() << "htmlOutput 3: " << htmlOutput;
+//                qDebug() << "htmlOutput 3: " << htmlOutput;
     }
     blockInfo->setTextHtml(htmlOutput);
 
@@ -231,9 +247,9 @@ void BlockModel::loadText(const QString &text)
 {
     QElapsedTimer timer;
     timer.start();
+    clear();
 
     emit aboutToLoadText();
-    clear();
     m_sourceDocument.setPlainText(text); // 40% performance hit
     QStringList lines = text.split("\n"); // TODO: Should we use Qt::SkipEmptyParts?
 
@@ -250,7 +266,12 @@ void BlockModel::loadText(const QString &text)
     endInsertRows();
     qDebug() << "Finished loading.";
 
-    QJsonObject dataToSendToView{ { "itemIndexInView", m_itemIndexInView } };
+    QJsonObject dataToSendToView;
+    if (m_searchResultBlockIndexes.isEmpty()) {
+        dataToSendToView["itemIndexInView"] = m_itemIndexInView;
+    } else {
+        dataToSendToView["itemIndexInView"] = m_searchResultBlockIndexes[0];
+    }
     emit loadTextFinished(QVariant(dataToSendToView));
 
     qint64 elapsed = timer.elapsed();
@@ -259,11 +280,10 @@ void BlockModel::loadText(const QString &text)
 
 void BlockModel::clear()
 {
+    beginResetModel();
+    m_searchResultBlockIndexes.clear();
     m_undoStack.clear();
     m_redoStack.clear();
-    beginResetModel();
-    //    qDeleteAll(m_blockList); // TODO: this is extremly slow 2-4x slower than loading. How to
-    //    optimize this?
     m_blockList.clear();
     endResetModel();
 }
@@ -294,14 +314,19 @@ QString BlockModel::QmlHtmlToMarkdown(QString &qmlHtml)
                                          // parse these as line breaks)
     QTextDocument doc;
     doc.setHtml(qmlHtml);
-    QString markdown = doc.toMarkdown();
+//    QString markdown = doc.toMarkdown();
     //    qDebug() << "markdown 0: " << markdown;
-    markdown.replace("\u2063", "<br />");
-    markdown.replace("\n\n", ""); // due to toMarkdown() adding these
-    markdown.replace("\n", " "); // due to QML's TextEdit text wrapping adding these
-    //    qDebug() << "markdown 1: " << markdown;
+//    markdown.replace("\u2063", "<br />");
+//    markdown.replace("\n\n", ""); // due to toMarkdown() adding these
+//    markdown.replace("\n", " "); // due to QML's TextEdit text wrapping adding these
+//    //    qDebug() << "markdown 1: " << markdown;
 
-    return markdown;
+//    return markdown;
+
+    return doc.toMarkdown()
+            .replace("\u2063", "<br />") // restore <br />s
+            .replace("\n\n", "") // due to toMarkdown() adding these
+            .replace("\n", " ");; // due to QML's TextEdit text wrapping adding these
 }
 
 void BlockModel::setTextAtIndex(const int blockIndex, QString qmlHtml, int cursorPositionQML)
@@ -313,7 +338,6 @@ void BlockModel::setTextAtIndex(const int blockIndex, QString qmlHtml, int curso
     QString markdown = QmlHtmlToMarkdown(qmlHtml);
     // Preserve delimiter
     markdown = blockInfo->blockDelimiter() + markdown;
-    //    qDebug() << "markdown 2: " << markdown;
     // Preserve indentation
     if (blockInfo->totalIndentLength() > 0)
         markdown = blockInfo->indentedString() + markdown;
@@ -323,18 +347,11 @@ void BlockModel::setTextAtIndex(const int blockIndex, QString qmlHtml, int curso
         return;
     }
 
-    //    qDebug() << "cursorPositionQML: " << cursorPositionQML;
-    //    qDebug() << "Changing!";
-    //    qDebug() << "markdown 3: " << markdown;
-
-    //    int indentAndDelimiterLength =
-    //            blockInfo->indentedString().length() + blockInfo->blockDelimiter().length();
-    //    int cursorPosition = cursorPositionQML + indentAndDelimiterLength;
     if (abs(blockInfo->textPlainText().length() - markdown.length()) == 1) {
         // one char operation
         OneCharOperation oneCharOperation = blockInfo->textPlainText().length() > markdown.length()
-                ? oneCharOperation = OneCharOperation::CharDelete
-                : oneCharOperation = OneCharOperation::CharInsert;
+                ? OneCharOperation::CharDelete
+                :  OneCharOperation::CharInsert;
         updateSourceTextBetweenLines(blockInfo->lineStartPos(), blockInfo->lineEndPos(), markdown,
                                      true, cursorPositionQML, ActionType::Modify, oneCharOperation);
     } else {
@@ -346,10 +363,10 @@ void BlockModel::setTextAtIndex(const int blockIndex, QString qmlHtml, int curso
 
     blockInfo->determineBlockType(markdown);
     int numberOfLinesBefore = blockInfo->lineEndPos() - blockInfo->lineStartPos() + 1;
-    int numberOfLinesDelta = markdown.count('\n') + 1 - numberOfLinesBefore;
+    int numberOfLinesDelta = markdown.count('\n') + 1 - numberOfLinesBefore; // TODO: probably unnecessary
     updateBlockText(blockInfo, markdown, blockInfo->lineStartPos(),
                     blockInfo->lineEndPos() + numberOfLinesDelta);
-    if (numberOfLinesDelta != 0) {
+    if (numberOfLinesDelta != 0) { // TODO: probably unnecessary
         updateBlocksLinePositions(blockIndex + 1, numberOfLinesDelta);
     }
 
@@ -362,7 +379,7 @@ void BlockModel::setTextAtIndex(const int blockIndex, QString qmlHtml, int curso
 // And we don't really need to rely on QTextDocument for that
 void BlockModel::updateSourceTextBetweenLines(
         int startLinePos, int endLinePos, const QString &newText, bool shouldCreateUndo,
-        int cursorPosition, ActionType actionType, OneCharOperation oneCharoperation,
+        int cursorPositionQML, ActionType actionType, OneCharOperation oneCharoperation,
         bool isForceMergeLastAction, int firstBlockSelectionStart, int lastBlockSelectionEnd)
 {
     //    qDebug() << "startLinePos: " << startLinePos;
@@ -380,11 +397,10 @@ void BlockModel::updateSourceTextBetweenLines(
         singleAction.blockEndIndex = endLinePos;
         singleAction.newPlainText = newText;
         singleAction.oneCharOperation = oneCharoperation;
-        singleAction.lastCursorPosition = cursorPosition;
+        singleAction.lastCursorPosition = cursorPositionQML;
 
         if (actionType == ActionType::Modify) {
             // Modifying only one block
-            //            qDebug() << "In modify";
             if (!m_undoStack.isEmpty() && !m_undoStack.last().actions.isEmpty()) {
                 SingleAction &lastAction = m_undoStack.last().actions.last();
                 if (oneCharoperation == OneCharOperation::CharInsert
@@ -392,11 +408,11 @@ void BlockModel::updateSourceTextBetweenLines(
                     if (lastAction.oneCharOperation == oneCharoperation
                         && lastAction.blockStartIndex == startLinePos
                         && lastAction.blockEndIndex == endLinePos
-                        && abs(lastAction.lastCursorPosition - cursorPosition) == 1) {
+                        && abs(lastAction.lastCursorPosition - cursorPositionQML) == 1) {
 
                         //                        qDebug() << "Merging last char action";
                         isMergingLastAction = true;
-                        lastAction.lastCursorPosition = cursorPosition;
+                        lastAction.lastCursorPosition = cursorPositionQML;
                         lastAction.newPlainText = newText;
                     }
                 }
@@ -412,20 +428,10 @@ void BlockModel::updateSourceTextBetweenLines(
     QTextBlock startBlock = m_sourceDocument.findBlockByLineNumber(startLinePos);
     QTextBlock endBlock = m_sourceDocument.findBlockByLineNumber(endLinePos);
     QTextCursor cursor(startBlock);
-
-    // position cursor at end of endBlock while keeping the anchoe
-    //    qDebug() << "startLinePos: " << startLinePos;
-    //    qDebug() << "endLinePos:" << endLinePos;
-    //    qDebug() << "endBlock.position(): " << endBlock.position();
-    //    qDebug() << "endBlock.length(): " << endBlock.length();
     cursor.setPosition(endBlock.position() + endBlock.length() - 1, QTextCursor::KeepAnchor);
-    //    qDebug() << "cursor.selectedText(): " << cursor.selectedText();
-
     singleAction.oldPlainText = cursor.selectedText().replace(
             "\u2029", "\n"); // In selectedText(), line breaks '\n' are replaced with Unicode
                              // U+2029. See: https://doc.qt.io/qt-6/qtextcursor.html#selectedText
-
-    //    qDebug() << "singleAction.oldPlainText: " << singleAction.oldPlainText;
 
     if (actionType == ActionType::Modify) {
         cursor.removeSelectedText();
@@ -1650,4 +1656,70 @@ void BlockModel::setSourceText(const QString &text)
 {
     m_sourceDocument.setPlainText(text);
     emit textChangeFinished();
+}
+
+void BlockModel::onSearchEditTextChanged(const QString &keyword) {
+    m_searchResultBlockIndexes.clear();
+    m_searchKeyword = keyword;
+}
+
+void BlockModel::clearSearch()
+{
+    m_searchResultBlockIndexes.clear();
+    m_searchKeyword = "";
+}
+
+void BlockModel::setTheme(Theme::Value theme)
+{
+    m_currentTheme = theme;
+}
+
+
+bool isWithinMarkup(const QString& text, int position) {
+    if (position < 0 || position >= text.size()) {
+        return false; // Position out of string bounds
+    }
+
+    bool withinAsteriskMarkup = false;
+    bool withinTildeMarkup = false;
+
+    for (int i = 0; i <= position; ++i) {
+        // Check for double asterisks
+        if (i < text.size() - 1 && text[i] == '*' && text[i + 1] == '*') {
+            withinAsteriskMarkup = !withinAsteriskMarkup; // Toggle state
+            ++i; // Skip next asterisk
+        }
+        // Check for tilde
+        else if (text[i] == '~') {
+            withinTildeMarkup = !withinTildeMarkup; // Toggle state
+        }
+    }
+
+    return withinAsteriskMarkup || withinTildeMarkup;
+}
+
+void BlockModel::checkToRenderMarkdown(const int blockIndex, int cursorPositionQML)
+{
+    QSharedPointer<BlockInfo> blockInfo = m_blockList[blockIndex];
+    QString markdown = blockInfo->textPlainText();
+    int indentAndDelimiterLength =
+            blockInfo->indentedString().length() + blockInfo->blockDelimiter().length();
+    int lineBreaksInQmlLength = markdown.replace("<br />", "\n").count("\n") * QStringLiteral("<br />").length();
+    int cursorPositionPlainText = indentAndDelimiterLength + lineBreaksInQmlLength + cursorPositionQML;
+
+    qDebug() << "blockInfo->textPlainText(): " << blockInfo->textPlainText();
+    qDebug() << "cursorPositionPlainText: " << cursorPositionPlainText;
+
+    if (isWithinMarkup(blockInfo->textPlainText(), cursorPositionPlainText)) {
+        qDebug() << "In Markup";
+        blockInfo->setTextHtml(blockInfo->textPlainText());
+        QModelIndex modelIdx = this->index(blockIndex);
+        emit dataChanged(modelIdx, modelIdx, {});
+    } else {
+        qDebug() << "Not in Markup";
+        QString mark = blockInfo->textPlainText();
+        updateBlockUsingPlainText(blockInfo, blockIndex, mark);
+        QModelIndex modelIdx = this->index(blockIndex);
+        emit dataChanged(modelIdx, modelIdx, {});
+    }
 }

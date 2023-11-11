@@ -234,8 +234,8 @@ Rectangle {
     }
 
     function blockToFocusOn(blockIndex : int) {
-        console.log("In blockToFocusOn 0");
-        console.log("blockIndex: ", blockIndex);
+//        console.log("In blockToFocusOn 0");
+//        console.log("blockIndex: ", blockIndex);
         var block = blockEditorView.itemAtIndex(blockIndex);
         if (block !== null) {
             if (root.isPasting && root.isBlockOutOfView(block)) {
@@ -473,32 +473,51 @@ Rectangle {
 //        }
 //    }
 
-    SwitchButton {
-        id: toggleBlockEditorButton
+    Row {
+        id: topBar
         anchors.top: parent.top
         anchors.horizontalCenter: parent.horizontalCenter
-        checkable: true
-        themeData: root.themeData
-        checked: root.showBlockEditor
 
-        onClicked: {
-            if (root.showBlockEditor) {
-                plainTextEditor.isProgrammaticChange = true;
-                plainTextEditor.text = BlockModel.getSourceText();
-                plainTextEditor.isProgrammaticChange = false;
-            } else {
-                BlockModel.loadText(BlockModel.getSourceText());
+//        CustomTextField {
+//            anchors.verticalCenter: toggleBlockEditorButton.verticalCenter
+//            width: 150
+//            height: 25
+//            color: root.themeData.theme === "Dark" ? "white" : "black"
+//            background: Rectangle {
+//                radius: 5
+//                color: root.themeData.theme === "Dark" ? "#313131" : "#efefef"
+//            }
+//            placeholderText: "Search"
+//            placeholderTextColor: root.themeData.theme === "Dark" ? "#4c454f" : "#c4c4c4"
+//        }
+
+        SwitchButton {
+            id: toggleBlockEditorButton
+            checkable: true
+            themeData: root.themeData
+            checked: root.showBlockEditor
+
+            onClicked: {
+                if (root.showBlockEditor) {
+                    plainTextEditor.isProgrammaticChange = true;
+                    plainTextEditor.text = BlockModel.getSourceText();
+                    plainTextEditor.isProgrammaticChange = false;
+                } else {
+                    plainTextEditor.clear();
+                    BlockModel.loadText(BlockModel.getSourceText());
+                }
+
+                root.showBlockEditor = !root.showBlockEditor;
             }
-
-            root.showBlockEditor = !root.showBlockEditor;
         }
     }
 
+
     ScrollView {
         id: plainTextEditorScrollView
-        anchors.top: toggleBlockEditorButton.bottom
+        anchors.top: topBar.bottom
         width: parent.width
-        height: parent.height - toggleBlockEditorButton.height
+        height: parent.height - topBar.height
         visible: !root.showBlockEditor
 
         TextArea {
@@ -579,9 +598,9 @@ Rectangle {
         model: BlockModel
 //        topMargin: 45
         bottomMargin: 45
-        anchors.top: toggleBlockEditorButton.bottom
+        anchors.top: topBar.bottom
         width: parent.width
-        height: parent.height - toggleBlockEditorButton.height
+        height: parent.height - topBar.height
         reuseItems: true // Gives huge performance boost
         visible: root.showBlockEditor
 
@@ -1167,11 +1186,11 @@ Rectangle {
                     }
 
                     onCursorPositionChanged: {
+//                        BlockModel.checkToRenderMarkdown(delegate.index, cursorPosition);
                         root.cursorX = root.mapFromItem(textEditor, textEditor.positionToRectangle(cursorPosition)).x;
 
                         if (!delegate.isPooled && !root.isProgrammaticChange) {
                             root.lastCursorPos = cursorPosition;
-//                            console.log("lastCursorPos CHANGED 5:", root.lastCursorPos);
                         }
                     }
 
@@ -1755,7 +1774,10 @@ Rectangle {
             interval: 500
 
             onTriggered: {
-                BlockModel.setVerticalScrollBarPosition(verticalScrollBar.position, blockEditorView.indexAt(0, blockEditorView.contentY));
+                var topBlockIndex = blockEditorView.indexAt(0, blockEditorView.contentY);
+                if (topBlockIndex !== -1) {
+                    BlockModel.setVerticalScrollBarPosition(verticalScrollBar.position, topBlockIndex);
+                }
             }
         }
 

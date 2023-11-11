@@ -708,6 +708,10 @@ void MainWindow::setupSignalsSlots()
     connect(m_noteEditorLogic, &NoteEditorLogic::noteEditClosed, m_listViewLogic,
             &ListViewLogic::onNoteEditClosed);
     connect(m_listViewLogic, &ListViewLogic::requestClearSearchUI, this, &MainWindow::clearSearch);
+    // Handle search in block model
+    connect(m_listViewLogic, &ListViewLogic::requestClearSearchUI, m_blockModel, &BlockModel::clearSearch);
+    connect(m_searchEdit, &QLineEdit::textChanged, m_blockModel,
+            &BlockModel::onSearchEditTextChanged);
     connect(m_treeViewLogic, &TreeViewLogic::addNoteToTag, m_listViewLogic,
             &ListViewLogic::onAddTagRequestD);
     connect(m_listViewLogic, &ListViewLogic::listViewLabelChanged, this,
@@ -1701,6 +1705,7 @@ void MainWindow::setTheme(Theme::Value theme)
     m_aboutWindow.setTheme(theme);
     m_treeViewLogic->setTheme(theme);
     ui->tagListView->setTheme(theme);
+    m_blockModel->setTheme(theme);
 
     updateSelectedOptionsEditorSettings();
 }

@@ -14,6 +14,7 @@
 #include <QMimeData>
 
 #include "blockinfo.h"
+#include "editorsettingsoptions.h"
 
 #include "md4c-html.h"
 #include "html2md.h"
@@ -74,8 +75,12 @@ public:
     static void processOutput(const MD_CHAR *output, MD_SIZE size, void *userdata);
     QString markdownToHtml(const QString &markdown);
     void setNothingLoaded();
+    void setTheme(Theme::Value theme);
 
 public slots:
+    void checkToRenderMarkdown(const int blockIndex, int cursorPositionQML);
+    void clearSearch();
+    void onSearchEditTextChanged(const QString &keyword);
     void setSourceText(const QString &text);
     QString getSourceText();
     void paste(QList<int> selectedBlockIndexes, int firstBlockSelectionStartPos,
@@ -128,6 +133,9 @@ private:
     double m_verticalScrollBarPosition;
     int m_itemIndexInView;
     QClipboard *m_clipboard;
+    QString m_searchKeyword;
+    QList<int> m_searchResultBlockIndexes;
+    Theme::Value m_currentTheme;
 
     void pasteMarkdown(const QString &markdown, QList<int> &selectedBlockIndexes,
                        int firstBlockSelectionStartPos, int lastBlockSelectionEndPos);
@@ -139,9 +147,8 @@ private:
     void updateBlockText(QSharedPointer<BlockInfo> &blockInfo, const QString &plainText,
                          unsigned int lineStartPos, unsigned int lineEndPos);
     void updateBlocksLinePositions(unsigned int blockPosition, int delta);
-    void updateSourceTextBetweenLines(
-            int startLinePos, int endLinePos, const QString &newText, bool shouldCreateUndo = true,
-            int cursorPosition = 0, ActionType actionType = ActionType::Modify,
+    void updateSourceTextBetweenLines(int startLinePos, int endLinePos, const QString &newText, bool shouldCreateUndo = true,
+            int cursorPositionQML = 0, ActionType actionType = ActionType::Modify,
             OneCharOperation oneCharoperation = OneCharOperation::NoOneCharOperation,
             bool isForceMergeLastAction = false, int firstBlockSelectionStart = 0,
             int lastBlockSelectionEnd = 0);

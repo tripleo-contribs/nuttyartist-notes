@@ -105,9 +105,13 @@ render_html_escaped(MD_HTML* r, const MD_CHAR* data, MD_SIZE size)
         if(off < size) {
             switch(data[off]) {
                 case '&':   RENDER_VERBATIM(r, "&amp;"); break;
-                case '<':   RENDER_VERBATIM(r, "&lt;"); break;
-                case '>':   RENDER_VERBATIM(r, "&gt;"); break;
-                case '"':   RENDER_VERBATIM(r, "&quot;"); break;
+//                case '<':   RENDER_VERBATIM(r, "&lt;"); break;
+//                case '>':   RENDER_VERBATIM(r, "&gt;"); break;
+//                case '"':   RENDER_VERBATIM(r, "&quot;"); break;
+                case '<':   RENDER_VERBATIM(r, "<"); break;
+                case '>':   RENDER_VERBATIM(r, ">"); break;
+                case '"':   RENDER_VERBATIM(r, "\""); break;
+
             }
             off++;
         } else {
